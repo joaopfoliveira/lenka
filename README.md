@@ -195,6 +195,40 @@ The game automatically removes inactive lobbies after 1 hour.
 
 This project is for educational and demonstration purposes.
 
+## 🚀 Deploy
+
+### Quick Deploy Steps
+
+1. **Create GitHub Repository:**
+   ```bash
+   # Go to https://github.com/new
+   # Create repository: lenka
+   ```
+
+2. **Push to GitHub:**
+   ```bash
+   git remote add origin https://github.com/joaopfoliveira/lenka.git
+   git push -u origin main
+   ```
+
+3. **Deploy Options:**
+
+   **Railway (Recommended for Socket.IO):**
+   - Visit https://railway.app/
+   - Import GitHub repository
+   - Deploy automatically
+
+   **Vercel (Limited Socket.IO support):**
+   - Visit https://vercel.com/
+   - Import GitHub repository
+   - Note: WebSockets have limitations on Vercel
+
+   **Render:**
+   - Visit https://render.com/
+   - Full Socket.IO support
+
+📖 **Full deploy guide:** See [DEPLOY.md](./DEPLOY.md)
+
 ## 🎉 Enjoy Playing Lenka!
 
 Have fun guessing prices and competing with friends!
