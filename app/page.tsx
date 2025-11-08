@@ -1,0 +1,193 @@
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Logo from './components/Logo';
+
+export default function Home() {
+  const router = useRouter();
+  const [mode, setMode] = useState<'menu' | 'create' | 'join'>('menu');
+  const [playerName, setPlayerName] = useState('');
+  const [lobbyCode, setLobbyCode] = useState('');
+  const [roundsTotal, setRoundsTotal] = useState(5);
+  const [error, setError] = useState('');
+
+  const handleCreateLobby = () => {
+    if (!playerName.trim()) {
+      setError('Please enter your name');
+      return;
+    }
+    
+    // Store player name and redirect with creation intent
+    localStorage.setItem('playerName', playerName);
+    localStorage.setItem('createLobby', 'true');
+    localStorage.setItem('roundsTotal', roundsTotal.toString());
+    // Use a special code that the lobby page will recognize
+    router.push('/lobby/__create__');
+  };
+
+  const handleJoinLobby = () => {
+    if (!playerName.trim()) {
+      setError('Please enter your name');
+      return;
+    }
+    
+    if (!lobbyCode.trim()) {
+      setError('Please enter lobby code');
+      return;
+    }
+
+    // Store player name and redirect
+    localStorage.setItem('playerName', playerName);
+    router.push(`/lobby/${lobbyCode.toUpperCase()}`);
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md border-2 border-lenka-mustard/20">
+        {/* Logo */}
+        <div className="text-center mb-8 flex flex-col items-center">
+          <Logo width={200} height={100} className="mb-4" />
+          <p className="text-lenka-dark font-semibold">Guess the Price & Win!</p>
+        </div>
+
+        {/* Menu */}
+        {mode === 'menu' && (
+          <div className="space-y-4">
+            <button
+              onClick={() => setMode('create')}
+              className="w-full bg-lenka-red hover:bg-lenka-red/90 text-white font-semibold py-4 px-6 rounded-lg transition duration-200 shadow-lg border-2 border-lenka-red"
+            >
+              Create Lobby
+            </button>
+            <button
+              onClick={() => setMode('join')}
+              className="w-full bg-lenka-mustard hover:bg-lenka-mustard/90 text-lenka-dark font-semibold py-4 px-6 rounded-lg transition duration-200 shadow-lg border-2 border-lenka-mustard"
+            >
+              Join Lobby
+            </button>
+          </div>
+        )}
+
+        {/* Create Lobby Form */}
+        {mode === 'create' && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-lenka-dark font-medium mb-2">Your Name</label>
+              <input
+                type="text"
+                value={playerName}
+                onChange={(e) => {
+                  setPlayerName(e.target.value);
+                  setError('');
+                }}
+                placeholder="Enter your name"
+                className="w-full px-4 py-3 border-2 border-lenka-mustard/30 rounded-lg focus:ring-2 focus:ring-lenka-red focus:border-lenka-red"
+                maxLength={20}
+              />
+            </div>
+
+            <div>
+              <label className="block text-lenka-dark font-medium mb-2">Number of Rounds</label>
+              <div className="flex gap-2">
+                {[5, 8, 10].map((num) => (
+                  <button
+                    key={num}
+                    onClick={() => setRoundsTotal(num)}
+                    className={`flex-1 py-3 rounded-lg font-semibold transition duration-200 border-2 ${
+                      roundsTotal === num
+                        ? 'bg-lenka-red text-white border-lenka-red'
+                        : 'bg-lenka-cream text-lenka-dark border-lenka-mustard/30 hover:border-lenka-mustard'
+                    }`}
+                  >
+                    {num}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                {error}
+              </div>
+            )}
+
+            <button
+              onClick={handleCreateLobby}
+              className="w-full bg-lenka-red hover:bg-lenka-red/90 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 border-2 border-lenka-red"
+            >
+              Create & Join
+            </button>
+            <button
+              onClick={() => {
+                setMode('menu');
+                setError('');
+              }}
+              className="w-full bg-lenka-cream hover:bg-lenka-mustard/20 text-lenka-dark font-semibold py-3 px-6 rounded-lg transition duration-200 border-2 border-lenka-mustard/30"
+            >
+              Back
+            </button>
+          </div>
+        )}
+
+        {/* Join Lobby Form */}
+        {mode === 'join' && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-lenka-dark font-medium mb-2">Your Name</label>
+              <input
+                type="text"
+                value={playerName}
+                onChange={(e) => {
+                  setPlayerName(e.target.value);
+                  setError('');
+                }}
+                placeholder="Enter your name"
+                className="w-full px-4 py-3 border-2 border-lenka-mustard/30 rounded-lg focus:ring-2 focus:ring-lenka-mustard focus:border-lenka-mustard"
+                maxLength={20}
+              />
+            </div>
+
+            <div>
+              <label className="block text-lenka-dark font-medium mb-2">Lobby Code</label>
+              <input
+                type="text"
+                value={lobbyCode}
+                onChange={(e) => {
+                  setLobbyCode(e.target.value.toUpperCase());
+                  setError('');
+                }}
+                placeholder="Enter lobby code"
+                className="w-full px-4 py-3 border-2 border-lenka-mustard/30 rounded-lg focus:ring-2 focus:ring-lenka-mustard focus:border-lenka-mustard uppercase"
+                maxLength={6}
+              />
+            </div>
+
+            {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                {error}
+              </div>
+            )}
+
+            <button
+              onClick={handleJoinLobby}
+              className="w-full bg-lenka-mustard hover:bg-lenka-mustard/90 text-lenka-dark font-semibold py-3 px-6 rounded-lg transition duration-200 border-2 border-lenka-mustard"
+            >
+              Join Lobby
+            </button>
+            <button
+              onClick={() => {
+                setMode('menu');
+                setError('');
+              }}
+              className="w-full bg-lenka-cream hover:bg-lenka-mustard/20 text-lenka-dark font-semibold py-3 px-6 rounded-lg transition duration-200 border-2 border-lenka-mustard/30"
+            >
+              Back
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+

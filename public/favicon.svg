@@ -1,0 +1,17 @@
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fundo transparente -->
+  <rect width="32" height="32" fill="transparent"/>
+  
+  <!-- Etiqueta simplificada para favicon -->
+  <rect x="6" y="10" width="20" height="14" rx="2" fill="#E2B22C" stroke="#FF3B1F" stroke-width="1.5"/>
+  
+  <!-- Buraco da etiqueta -->
+  <circle cx="4" cy="17" r="2" fill="none" stroke="#FF3B1F" stroke-width="1.2"/>
+  
+  <!-- Linha/fio -->
+  <path d="M 4 17 C 2 12, 4 8, 10 9" fill="none" stroke="#FF3B1F" stroke-width="1.2" stroke-linecap="round"/>
+  
+  <!-- Letra L -->
+  <text x="16" y="23" font-family="Georgia, serif" font-size="14" font-weight="bold" fill="#FF3B1F" text-anchor="middle">L</text>
+</svg>
+
