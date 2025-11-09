@@ -6,8 +6,18 @@ let socket: Socket | null = null;
 
 export function getSocket(): Socket {
   if (!socket) {
-    socket = io('http://localhost:3000', {
+    // Use window.location.origin in production, localhost in dev
+    const socketUrl = typeof window !== 'undefined' && window.location.origin.includes('localhost')
+      ? 'http://localhost:3000'
+      : typeof window !== 'undefined' 
+        ? window.location.origin 
+        : 'http://localhost:3000';
+    
+    console.log('🔌 Connecting to Socket.IO at:', socketUrl);
+    
+    socket = io(socketUrl, {
       autoConnect: true,
+      transports: ['websocket', 'polling'], // Try websocket first, fallback to polling
     });
     
     // Debug logging
