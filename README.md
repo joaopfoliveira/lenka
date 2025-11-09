@@ -93,11 +93,10 @@ lenka/
 │   ├── products.ts              # Product database (auto-generated)
 │   └── products-scraped.json    # Backup JSON
 ├── scripts/
-│   ├── scraper.ts               # Continente product scraper
-│   ├── schedule-scraper.ts      # Daily scraping scheduler
-│   ├── test-scraper.ts          # Connection tester
-│   ├── debug-scraper.ts         # Scraper debugger
-│   └── README-SCRAPER.md        # Scraper documentation
+│   ├── supersave-fetcher.ts     # SuperSave.pt API fetcher (main)
+│   ├── scraper.ts               # Legacy: Continente scraper
+│   ├── schedule-scraper.ts      # Legacy: Daily scraping scheduler
+│   └── explore-*.ts             # API exploration tools
 ├── server.ts                    # Custom Socket.IO server
 ├── package.json
 ├── tsconfig.json
@@ -111,16 +110,17 @@ lenka/
 
 - ✅ Create and join private lobbies
 - ✅ Real-time player synchronization
-- ✅ **75+ real Portuguese supermarket products** (scraped from Continente)
-- ✅ **Real product images and prices**
-- ✅ 5 product categories (Laticínios, Bebidas, Snacks, Cereais, Doces)
+- ✅ **70+ real Portuguese supermarket products** (via SuperSave.pt API)
+- ✅ **Real product images and prices** from multiple stores (Continente, Pingo Doce, Auchan)
+- ✅ **Best prices automatically selected** across all stores
+- ✅ 7 product categories (Bebidas, Laticínios, Bolachas, Iogurtes, Cereais, Snacks, Padaria)
 - ✅ Countdown timer per round
 - ✅ Live scoring and leaderboards
 - ✅ Automatic round progression
 - ✅ Final results and rankings
 - ✅ Play again functionality
-- ✅ Responsive design (desktop + mobile)
-- ✅ **Automatic product updates** (daily scraping)
+- ✅ Responsive design (desktop + mobile optimized)
+- ✅ **Easy product updates** (simple API call, no scraping!)
 
 ## 🔧 Development
 
@@ -131,21 +131,31 @@ npm run build
 npm start
 ```
 
-### Updating Products (Web Scraping)
+### Updating Products
 
-The game uses **real products from Continente** with up-to-date prices and images.
+The game uses **real products from SuperSave.pt API** with up-to-date prices and images from multiple Portuguese supermarkets.
 
-**Manual update:**
+**Update product data:**
+```bash
+npm run fetch:products
+```
+
+This will fetch fresh products from:
+- Continente
+- Pingo Doce
+- Auchan
+- Multiple product categories
+- Automatically selects best prices
+
+**Legacy scraper (Continente only):**
 ```bash
 npm run scrape
 ```
 
-**Automatic daily updates:**
-```bash
-npm run scrape:schedule
-```
+**See full API documentation:**
+- [SUPERSAVE-API.md](./SUPERSAVE-API.md)
 
-**Test scraper:**
+**Test old scraper (legacy):**
 ```bash
 npx tsx scripts/test-scraper.ts
 ```
