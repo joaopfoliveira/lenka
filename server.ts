@@ -5,8 +5,8 @@ import { Server } from 'socket.io';
 import { gameManager } from './lib/gameManager';
 
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = 'localhost';
-const port = 3000;
+const hostname = dev ? 'localhost' : '0.0.0.0';
+const port = parseInt(process.env.PORT || '3000', 10);
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
