@@ -89,13 +89,18 @@ lenka/
 ├── lib/
 │   ├── gameManager.ts           # Server-side game logic
 │   └── socketClient.ts          # Socket.IO client utilities
+├── lib/
+│   ├── productTypes.ts          # Generic product types & utilities
+│   └── fetchers/
+│       ├── index.ts             # Fetcher registry
+│       ├── supermarket.fetcher.ts # SuperSave.pt API
+│       └── amazon.fetcher.ts    # Amazon products
 ├── data/
 │   ├── products.ts              # Product database (auto-generated)
 │   └── products-scraped.json    # Backup JSON
 ├── scripts/
-│   ├── supersave-fetcher.ts     # SuperSave.pt API fetcher (main)
-│   ├── scraper.ts               # Legacy: Continente scraper
-│   ├── schedule-scraper.ts      # Legacy: Daily scraping scheduler
+│   ├── fetch-all-products.ts    # Main: Fetch ALL sources
+│   ├── supersave-fetcher.ts     # SuperSave.pt only
 │   └── explore-*.ts             # API exploration tools
 ├── server.ts                    # Custom Socket.IO server
 ├── package.json
@@ -110,17 +115,19 @@ lenka/
 
 - ✅ Create and join private lobbies
 - ✅ Real-time player synchronization
-- ✅ **70+ real Portuguese supermarket products** (via SuperSave.pt API)
-- ✅ **Real product images and prices** from multiple stores (Continente, Pingo Doce, Auchan)
-- ✅ **Best prices automatically selected** across all stores
-- ✅ 7 product categories (Bebidas, Laticínios, Bolachas, Iogurtes, Cereais, Snacks, Padaria)
+- ✅ **90+ products from multiple sources** (Supermarket + Amazon + more!)
+- ✅ **Real product images and prices** from multiple stores
+- ✅ **Supermarket products** (70): Continente, Pingo Doce, Auchan via SuperSave.pt API
+- ✅ **Amazon products** (20): Electronics, books, toys, home & more
+- ✅ **16 product categories** - from €0.59 to €199.99
+- ✅ **Difficulty tiers** - Easy, Medium, Hard based on price
 - ✅ Countdown timer per round
 - ✅ Live scoring and leaderboards
 - ✅ Automatic round progression
 - ✅ Final results and rankings
 - ✅ Play again functionality
 - ✅ Responsive design (desktop + mobile optimized)
-- ✅ **Easy product updates** (simple API call, no scraping!)
+- ✅ **Extensible architecture** - easy to add new product sources!
 
 ## 🔧 Development
 
@@ -133,35 +140,31 @@ npm start
 
 ### Updating Products
 
-The game uses **real products from SuperSave.pt API** with up-to-date prices and images from multiple Portuguese supermarkets.
+The game uses **products from multiple sources** with a generic, extensible architecture.
 
-**Update product data:**
+**Fetch ALL products (Supermarket + Amazon + more):**
 ```bash
 npm run fetch:products
 ```
 
-This will fetch fresh products from:
-- Continente
-- Pingo Doce
-- Auchan
-- Multiple product categories
-- Automatically selects best prices
+This will fetch:
+- **70 Supermarket products** (Continente, Pingo Doce, Auchan) via SuperSave.pt API
+- **20 Amazon products** (Electronics, books, toys, home goods, etc.)
+- Total: **90 products** across **16 categories**
+- Price range: €0.59 - €199.99
 
-**Legacy scraper (Continente only):**
+**Fetch specific source only:**
 ```bash
-npm run scrape
+# Supermarket only
+npm run fetch:supermarket
 ```
 
-**See full API documentation:**
-- [SUPERSAVE-API.md](./SUPERSAVE-API.md)
+**See documentation:**
+- [MULTI-SOURCE-PRODUCTS.md](./MULTI-SOURCE-PRODUCTS.md) - **Multi-source architecture guide**
+- [SUPERSAVE-API.md](./SUPERSAVE-API.md) - SuperSave.pt API documentation
 
-**Test old scraper (legacy):**
-```bash
-npx tsx scripts/test-scraper.ts
-```
-
-**For detailed scraper documentation, see:**
-- `SCRAPER-QUICKSTART.md` - Quick start guide
+**Adding new product sources:**
+The architecture makes it easy to add new sources (cars, real estate, more stores, etc.). See `MULTI-SOURCE-PRODUCTS.md` for details.
 - `SCRAPER-IMPLEMENTADO.md` - Full implementation details
 - `scripts/README-SCRAPER.md` - Technical documentation
 
