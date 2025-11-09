@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "NODE_ENV=production tsx server.ts",
     "lint": "next lint",
-    "fetch:products": "tsx scripts/supersave-fetcher.ts",
+    "fetch:products": "tsx scripts/fetch-all-products.ts",
+    "fetch:supermarket": "tsx scripts/supersave-fetcher.ts",
     "scrape": "tsx scripts/scraper.ts",
     "scrape:schedule": "tsx scripts/schedule-scraper.ts",
     "setup:scraper": "bash scripts/setup-scraper.sh"
