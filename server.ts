@@ -61,23 +61,28 @@ app.prepare().then(() => {
     socket.on('lobby:join', ({ code, playerName }) => {
       console.log('📝 Join lobby request:', code, 'player:', playerName);
       try {
-        const lobby = gameManager.joinLobby(code, playerName, socket.id);
+        const result = gameManager.joinLobby(code, playerName, socket.id);
         
-        if (!lobby) {
+        if (!result) {
           console.log('❌ Lobby not found:', code);
           socket.emit('error', { message: 'Lobby not found or game already started' });
           return;
         }
 
+        const { lobby, isReconnect, oldPlayerId } = result;
         socket.join(code);
-        console.log('✅ Player joined lobby:', code);
-        socket.emit('lobby:state', lobby);
-        console.log('📤 Sent lobby state to client');
         
-        // Notify others
-        socket.to(code).emit('player:joined', {
-          player: lobby.players.find(p => p.id === socket.id)
-        });
+        if (isReconnect) {
+          console.log(`🔄 Player reconnected: ${playerName} (new socket: ${socket.id})`);
+          // Send updated state to everyone (so they see the player is back with new socket ID)
+          io.to(code).emit('lobby:state', lobby);
+        } else {
+          console.log('✅ Player joined lobby:', code);
+          socket.emit('lobby:state', lobby);
+          
+          // Notify others about new player
+          socket.to(code).emit('lobby:state', lobby);
+        }
       } catch (error) {
         console.error('❌ Error joining lobby:', error);
         socket.emit('error', { message: 'Failed to join lobby' });
@@ -86,12 +91,17 @@ app.prepare().then(() => {
 
     // Leave lobby
     socket.on('lobby:leave', ({ code }) => {
+      console.log(`👋 Player ${socket.id} leaving lobby ${code}`);
       try {
-        const { lobby, shouldDelete } = gameManager.leaveLobby(code, socket.id);
+        const { lobby, shouldDelete, newHostId } = gameManager.leaveLobby(code, socket.id);
         
         if (!shouldDelete && lobby) {
-          socket.to(code).emit('player:left', { playerId: socket.id });
-          socket.to(code).emit('lobby:state', lobby);
+          console.log(`📢 Broadcasting updated lobby state (${lobby.players.length} players remaining)`);
+          if (newHostId) {
+            console.log(`👑 New host: ${newHostId}`);
+          }
+          // Broadcast updated state to everyone in the lobby
+          io.to(code).emit('lobby:state', lobby);
         }
         
         socket.leave(code);
@@ -225,8 +235,28 @@ app.prepare().then(() => {
 
     // Disconnect
     socket.on('disconnect', () => {
-      console.log('Client disconnected:', socket.id);
-      // Note: We could implement auto-cleanup here by tracking which lobby the socket was in
+      console.log('❌ Client disconnected:', socket.id);
+      
+      // Find which lobby this player was in and clean up
+      const playerLobby = gameManager.findPlayerLobby(socket.id);
+      
+      if (playerLobby) {
+        const { code, lobby } = playerLobby;
+        console.log(`🧹 Auto-cleanup: removing ${socket.id} from lobby ${code}`);
+        
+        const { lobby: updatedLobby, shouldDelete, newHostId } = gameManager.leaveLobby(code, socket.id);
+        
+        if (!shouldDelete && updatedLobby) {
+          console.log(`📢 Broadcasting updated lobby after disconnect (${updatedLobby.players.length} players remaining)`);
+          if (newHostId) {
+            console.log(`👑 New host assigned: ${newHostId}`);
+          }
+          // Notify remaining players
+          io.to(code).emit('lobby:state', updatedLobby);
+        } else if (shouldDelete) {
+          console.log(`🗑️ Lobby ${code} was deleted (no players left)`);
+        }
+      }
     });
   });
 

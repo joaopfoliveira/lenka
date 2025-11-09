@@ -58,22 +58,48 @@ class GameManager {
   }
 
   // Join existing lobby
-  joinLobby(code: string, playerName: string, playerId: string): Lobby | null {
+  joinLobby(code: string, playerName: string, playerId: string): { lobby: Lobby; isReconnect: boolean; oldPlayerId?: string } | null {
     const lobby = this.lobbies.get(code);
     
     if (!lobby) {
       return null;
     }
 
+    // Check if player with same socket ID already exists
+    const existingPlayerById = lobby.players.find(p => p.id === playerId);
+    if (existingPlayerById) {
+      return { lobby, isReconnect: false };
+    }
+
+    // Check if player with same NAME already exists (reconnection after refresh)
+    const existingPlayerByName = lobby.players.find(p => p.name === playerName);
+    if (existingPlayerByName) {
+      console.log(`🔄 Reconnection detected: "${playerName}" (old ID: ${existingPlayerByName.id}, new ID: ${playerId})`);
+      const oldPlayerId = existingPlayerByName.id;
+      
+      // Update the socket ID to the new one
+      existingPlayerByName.id = playerId;
+      
+      // If this was the host, update hostId
+      if (lobby.hostId === oldPlayerId) {
+        lobby.hostId = playerId;
+      }
+      
+      // Clear any pending guess from old socket ID
+      if (lobby.guesses[oldPlayerId] !== undefined) {
+        lobby.guesses[playerId] = lobby.guesses[oldPlayerId];
+        delete lobby.guesses[oldPlayerId];
+      }
+      
+      return { lobby, isReconnect: true, oldPlayerId };
+    }
+
+    // Can only join waiting lobbies (new players can't join mid-game)
     if (lobby.status !== 'waiting') {
-      return null; // Can't join if game already started
+      return null;
     }
 
-    // Check if player already in lobby
-    if (lobby.players.some(p => p.id === playerId)) {
-      return lobby;
-    }
-
+    // New player joining
     lobby.players.push({
       id: playerId,
       name: playerName,
@@ -81,11 +107,11 @@ class GameManager {
       score: 0
     });
 
-    return lobby;
+    return { lobby, isReconnect: false };
   }
 
   // Leave lobby
-  leaveLobby(code: string, playerId: string): { lobby: Lobby | null; shouldDelete: boolean } {
+  leaveLobby(code: string, playerId: string): { lobby: Lobby | null; shouldDelete: boolean; newHostId?: string } {
     const lobby = this.lobbies.get(code);
     
     if (!lobby) {
@@ -93,21 +119,27 @@ class GameManager {
     }
 
     // Remove player
+    const wasHost = lobby.hostId === playerId;
     lobby.players = lobby.players.filter(p => p.id !== playerId);
 
     // If no players left, mark for deletion
     if (lobby.players.length === 0) {
       this.lobbies.delete(code);
+      console.log(`🗑️ Lobby ${code} deleted (no players left)`);
       return { lobby: null, shouldDelete: true };
     }
 
-    // If host left, assign new host
-    if (lobby.hostId === playerId && lobby.players.length > 0) {
-      lobby.hostId = lobby.players[0].id;
-      lobby.players[0].isHost = true;
+    // If host left, assign new host to the first remaining player
+    let newHostId: string | undefined;
+    if (wasHost && lobby.players.length > 0) {
+      const newHost = lobby.players[0];
+      lobby.hostId = newHost.id;
+      newHost.isHost = true;
+      newHostId = newHost.id;
+      console.log(`👑 New host assigned in lobby ${code}: ${newHost.name} (${newHost.id})`);
     }
 
-    return { lobby, shouldDelete: false };
+    return { lobby, shouldDelete: false, newHostId };
   }
 
   // Start game
@@ -250,6 +282,16 @@ class GameManager {
     if (!lobby) return false;
 
     return lobby.players.every(p => lobby.guesses[p.id] !== undefined);
+  }
+
+  // Find which lobby a player is in
+  findPlayerLobby(playerId: string): { code: string; lobby: Lobby } | null {
+    for (const [code, lobby] of this.lobbies.entries()) {
+      if (lobby.players.some(p => p.id === playerId)) {
+        return { code, lobby };
+      }
+    }
+    return null;
   }
 
   // Clean up old lobbies (called periodically)
