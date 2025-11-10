@@ -9,7 +9,6 @@ import {
   joinLobby,
   leaveLobby,
   startGame,
-  startGameWithProducts,
   submitGuess,
   markPlayerReady,
   resetGame,
@@ -29,7 +28,6 @@ import {
 import { Lobby, Player } from '@/lib/gameManager';
 import { Product } from '@/data/products';
 import ProductImage from '@/app/components/ProductImage';
-import { fetchRandomKuantoKustaProductsFromBrowser } from '@/lib/fetchers/kuantokusta-client';
 
 export default function LobbyPage() {
   const params = useParams();
@@ -299,41 +297,11 @@ export default function LobbyPage() {
 
     setIsStarting(true);
     setIsLoadingProducts(true);
-    setLoadingMessage('A buscar produtos do browser...');
+    setLoadingMessage('A buscar produtos da API do KuantoKusta...');
 
-    try {
-      console.log('🌐 [CLIENT] Attempting to fetch products from browser...');
-      console.log(`🌐 [CLIENT] Required products: ${lobby.roundsTotal}`);
-      
-      // Try to fetch products from browser (bypasses server IP 403 issue)
-      const products = await fetchRandomKuantoKustaProductsFromBrowser(lobby.roundsTotal);
-      
-      console.log(`🌐 [CLIENT] Fetch completed. Received ${products?.length || 0} products`);
-      
-      if (products && products.length >= lobby.roundsTotal) {
-        console.log('✅ [CLIENT] Successfully fetched products from browser, sending to server...');
-        console.log('✅ [CLIENT] Sample product:', products[0]);
-        startGameWithProducts(lobby.code, products);
-      } else {
-        const errorMsg = `Insufficient products: got ${products?.length || 0}, needed ${lobby.roundsTotal}`;
-        console.error('❌ [CLIENT]', errorMsg);
-        throw new Error(errorMsg);
-      }
-    } catch (error: any) {
-      console.error('❌ [CLIENT] Browser fetch failed completely:', error);
-      console.error('❌ [CLIENT] Error type:', error.constructor.name);
-      console.error('❌ [CLIENT] Error message:', error.message);
-      console.error('❌ [CLIENT] Error stack:', error.stack);
-      
-      // Show error to user
-      setError(`Erro ao buscar produtos: ${error.message}. A tentar método alternativo...`);
-      addTimeout(() => setError(''), 5000);
-      
-      // Fallback: use server-side fetch (old method)
-      console.log('🔄 [FALLBACK] Using server-side API fetch...');
-      setLoadingMessage('A buscar produtos do servidor...');
-      startGame(lobby.code);
-    }
+    // Use server-side API fetch (works!)
+    console.log('🛒 [SERVER] Starting game with server-side API fetch...');
+    startGame(lobby.code);
   };
 
   const handleSubmitGuess = () => {
