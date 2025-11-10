@@ -58,6 +58,20 @@ export function disconnectSocket() {
   }
 }
 
+// Remove all game-related listeners (called when leaving lobby or resetting)
+export function removeAllGameListeners() {
+  const socket = getSocket();
+  console.log('🧹 Removing all game-related listeners');
+  
+  // Remove all listeners for game events
+  socket.removeAllListeners('game:loading');
+  socket.removeAllListeners('game:started');
+  socket.removeAllListeners('round:update');
+  socket.removeAllListeners('round:results');
+  socket.removeAllListeners('game:ended');
+  socket.removeAllListeners('ready:timeout');
+}
+
 // Event emitters
 export function createLobby(roundsTotal: number, playerName: string) {
   const socket = getSocket();
@@ -83,6 +97,11 @@ export function startGame(code: string) {
 export function submitGuess(code: string, value: number) {
   const socket = getSocket();
   socket.emit('guess:submit', { code, value });
+}
+
+export function markPlayerReady(code: string) {
+  const socket = getSocket();
+  socket.emit('player:ready', { code });
 }
 
 export function resetGame(code: string) {
@@ -114,6 +133,12 @@ export function onPlayerLeft(callback: (data: { playerId: string }) => void) {
   const socket = getSocket();
   socket.on('player:left', callback);
   return () => socket.off('player:left', callback);
+}
+
+export function onGameLoading(callback: (data: { message: string; totalRounds: number }) => void) {
+  const socket = getSocket();
+  socket.on('game:loading', callback);
+  return () => socket.off('game:loading', callback);
 }
 
 export function onGameStarted(callback: (data: { product: Product; roundIndex: number; totalRounds: number }) => void) {
@@ -150,6 +175,12 @@ export function onGameEnded(callback: (data: {
   const socket = getSocket();
   socket.on('game:ended', callback);
   return () => socket.off('game:ended', callback);
+}
+
+export function onReadyTimeout(callback: (data: { timeLeft: number }) => void) {
+  const socket = getSocket();
+  socket.on('ready:timeout', callback);
+  return () => socket.off('ready:timeout', callback);
 }
 
 export function onError(callback: (data: { message: string }) => void) {

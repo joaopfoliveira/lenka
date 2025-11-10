@@ -1,11 +1,9 @@
 /**
- * Amazon Product Fetcher
+ * Amazon ES Product Fetcher
  * 
- * Since Amazon/CamelCamelCamel APIs are restricted,
- * this uses a curated list of popular Amazon ES products
- * with realistic prices for the game.
- * 
- * Future: Can be extended with real API when available
+ * Real products scraped from CamelCamelCamel popular products
+ * 200 unique products with real Amazon images and prices
+ * Updated: November 2025
  */
 
 import {
@@ -16,262 +14,135 @@ import {
   createProductId,
   calculateDifficulty,
 } from '../productTypes';
+import { readFileSync } from 'fs';
+import path from 'path';
 
-/**
- * Curated list of popular Amazon ES products
- * Prices are realistic based on Amazon ES (as of November 2025)
- */
-const AMAZON_PRODUCTS_CATALOG: Omit<Product, 'id' | 'source' | 'difficulty' | 'updatedAt'>[] = [
-  // Eletrónicos
-  {
-    name: 'Fire TV Stick 4K',
-    brand: 'Amazon',
-    category: 'Eletrónicos',
-    price: 49.99,
-    currency: 'EUR',
-    imageUrl: 'https://m.media-amazon.com/images/I/51MSD32mZNL._AC_SL1000_.jpg',
-    store: 'Amazon ES',
-    description: 'Streaming media player',
-  },
-  {
-    name: 'Echo Dot (5ª Generación)',
-    brand: 'Amazon',
-    category: 'Eletrónicos',
-    price: 59.99,
-    currency: 'EUR',
-    imageUrl: 'https://m.media-amazon.com/images/I/71RzKRu0EuL._AC_SL1000_.jpg',
-    store: 'Amazon ES',
-    description: 'Altavoz inteligente con Alexa',
-  },
-  {
-    name: 'Auriculares Bluetooth JBL Tune 510BT',
-    brand: 'JBL',
-    category: 'Eletrónicos',
-    price: 29.99,
-    currency: 'EUR',
-    imageUrl: 'https://m.media-amazon.com/images/I/61nDjVSU+rL._AC_SL1500_.jpg',
-    store: 'Amazon ES',
-    description: 'Auriculares inalámbricos',
-  },
-  {
-    name: 'Ratón Inalámbrico Logitech M185',
-    brand: 'Logitech',
-    category: 'Informática',
-    price: 12.99,
-    currency: 'EUR',
-    imageUrl: 'https://m.media-amazon.com/images/I/51z57s8U+xL._AC_SL1200_.jpg',
-    store: 'Amazon ES',
-  },
-  {
-    name: 'Teclado Mecánico Gaming RGB',
-    brand: 'Redragon',
-    category: 'Informática',
-    price: 45.99,
-    currency: 'EUR',
-    imageUrl: 'https://m.media-amazon.com/images/I/71qtgvhRHJL._AC_SL1500_.jpg',
-    store: 'Amazon ES',
-  },
-  
-  // Livros
-  {
-    name: 'Harry Potter y la Piedra Filosofal',
-    brand: 'J.K. Rowling',
-    category: 'Livros',
-    price: 12.30,
-    currency: 'EUR',
-    imageUrl: 'https://m.media-amazon.com/images/I/81Ui5AYF8AL._SL1500_.jpg',
-    store: 'Amazon ES',
-  },
-  {
-    name: 'El Principito - Edición Ilustrada',
-    brand: 'Antoine de Saint-Exupéry',
-    category: 'Livros',
-    price: 9.95,
-    currency: 'EUR',
-    imageUrl: 'https://m.media-amazon.com/images/I/71Ui5AYF8AL._SL1500_.jpg',
-    store: 'Amazon ES',
-  },
-  
-  // Brinquedos
-  {
-    name: 'LEGO Classic Caja de Ladrillos Creativos',
-    brand: 'LEGO',
-    category: 'Brinquedos',
-    price: 34.99,
-    currency: 'EUR',
-    imageUrl: 'https://m.media-amazon.com/images/I/71Ui5AYF8AL._SL1500_.jpg',
-    store: 'Amazon ES',
-    description: '484 piezas',
-  },
-  {
-    name: 'Cubo de Rubik Original 3x3',
-    brand: 'Rubik',
-    category: 'Brinquedos',
-    price: 14.95,
-    currency: 'EUR',
-    imageUrl: 'https://m.media-amazon.com/images/I/61s1Ui5AYF8AL._SL1500_.jpg',
-    store: 'Amazon ES',
-  },
-  
-  // Casa & Jardim
-  {
-    name: 'Juego de Sartenes Antiadherentes (3 piezas)',
-    brand: 'Tefal',
-    category: 'Casa & Jardim',
-    price: 54.99,
-    currency: 'EUR',
-    imageUrl: 'https://m.media-amazon.com/images/I/71s1Ui5AYF8AL._SL1500_.jpg',
-    store: 'Amazon ES',
-  },
-  {
-    name: 'Set de 12 Toallas de Algodón',
-    brand: 'AmazonBasics',
-    category: 'Casa & Jardim',
-    price: 29.99,
-    currency: 'EUR',
-    imageUrl: 'https://m.media-amazon.com/images/I/81s1Ui5AYF8AL._SL1500_.jpg',
-    store: 'Amazon ES',
-  },
-  {
-    name: 'Aspiradora Robot iRobot Roomba 692',
-    brand: 'iRobot',
-    category: 'Casa & Jardim',
-    price: 199.99,
-    currency: 'EUR',
-    imageUrl: 'https://m.media-amazon.com/images/I/61s1Ui5AYF8AL._SL1500_.jpg',
-    store: 'Amazon ES',
-  },
-  
-  // Desporto
-  {
-    name: 'Esterilla de Yoga Antideslizante',
-    brand: 'ATIVAFIT',
-    category: 'Desporto',
-    price: 24.99,
-    currency: 'EUR',
-    imageUrl: 'https://m.media-amazon.com/images/I/71s1Ui5AYF8AL._SL1500_.jpg',
-    store: 'Amazon ES',
-  },
-  {
-    name: 'Mancuernas Ajustables 20kg (Par)',
-    brand: 'Bowflex',
-    category: 'Desporto',
-    price: 89.99,
-    currency: 'EUR',
-    imageUrl: 'https://m.media-amazon.com/images/I/61s1Ui5AYF8AL._SL1500_.jpg',
-    store: 'Amazon ES',
-  },
-  
-  // Beleza
-  {
-    name: 'Plancha de Pelo Cerámica',
-    brand: 'Remington',
-    category: 'Beleza',
-    price: 34.99,
-    currency: 'EUR',
-    imageUrl: 'https://m.media-amazon.com/images/I/71s1Ui5AYF8AL._SL1500_.jpg',
-    store: 'Amazon ES',
-  },
-  {
-    name: 'Set de Brochas de Maquillaje (12 piezas)',
-    brand: 'USpicy',
-    category: 'Beleza',
-    price: 15.99,
-    currency: 'EUR',
-    imageUrl: 'https://m.media-amazon.com/images/I/81s1Ui5AYF8AL._SL1500_.jpg',
-    store: 'Amazon ES',
-  },
+interface ScrapedProduct {
+  name: string;
+  asin: string;
+  imageUrl: string;
+  price: number;
+  category: string;
+}
 
-  // Moda
-  {
-    name: 'Zapatillas Running Nike Revolution 6',
-    brand: 'Nike',
-    category: 'Moda',
-    price: 64.99,
-    currency: 'EUR',
-    imageUrl: 'https://m.media-amazon.com/images/I/71s1Ui5AYF8AL._SL1500_.jpg',
-    store: 'Amazon ES',
-  },
-  {
-    name: 'Mochila para Portátil 15.6"',
-    brand: 'KONO',
-    category: 'Moda',
-    price: 27.99,
-    currency: 'EUR',
-    imageUrl: 'https://m.media-amazon.com/images/I/81s1Ui5AYF8AL._SL1500_.jpg',
-    store: 'Amazon ES',
-  },
+// Load scraped products at module initialization
+let AMAZON_PRODUCTS_CATALOG: ScrapedProduct[] = [];
 
-  // Ferramentas
-  {
-    name: 'Taladro Atornillador Bosch 18V',
-    brand: 'Bosch',
-    category: 'Ferramentas',
-    price: 129.99,
-    currency: 'EUR',
-    imageUrl: 'https://m.media-amazon.com/images/I/71s1Ui5AYF8AL._SL1500_.jpg',
-    store: 'Amazon ES',
-  },
-  {
-    name: 'Set de Destornilladores (25 piezas)',
-    brand: 'Stanley',
-    category: 'Ferramentas',
-    price: 22.99,
-    currency: 'EUR',
-    imageUrl: 'https://m.media-amazon.com/images/I/81s1Ui5AYF8AL._SL1500_.jpg',
-    store: 'Amazon ES',
-  },
-];
+try {
+  const dataPath = path.join(process.cwd(), 'data', 'camelcamel-products.json');
+  const rawData = readFileSync(dataPath, 'utf-8');
+  AMAZON_PRODUCTS_CATALOG = JSON.parse(rawData);
+  console.log(`📦 Loaded ${AMAZON_PRODUCTS_CATALOG.length} Amazon ES products from CamelCamelCamel`);
+} catch (error) {
+  console.error('❌ Failed to load Amazon products:', error);
+  // Fallback to empty array - will be handled gracefully
+  AMAZON_PRODUCTS_CATALOG = [];
+}
+
+// Category mapping from scraped categories to our categories
+const CATEGORY_MAP: Record<string, ProductCategory> = {
+  'Eletrónicos': 'Eletrónicos',
+  'Informática': 'Informática',
+  'Livros': 'Livros',
+  'Brinquedos': 'Brinquedos',
+  'Casa & Jardim': 'Casa & Jardim',
+  'Moda': 'Moda',
+  'Beleza': 'Beleza',
+  'Ferramentas': 'Ferramentas',
+  'Outros': 'Eletrónicos', // Map "Outros" to Eletrónicos as fallback
+};
 
 export class AmazonFetcher implements ProductFetcher {
   source = 'amazon' as const;
-  name = 'Amazon ES (Curated Products)';
+  name = 'Amazon ES (Real Products via CamelCamelCamel)';
 
   async fetch(options?: FetcherOptions): Promise<Product[]> {
     const {
       categories,
-      maxProducts = 50,
+      maxProducts = 100,
       minPrice = 5,
-      maxPrice = 300,
+      maxPrice = 2000, // Increased to include more expensive items
     } = options || {};
 
-    console.log(`🛍️ Loading Amazon products...`);
+    console.log(`🛍️ Loading Amazon ES products (${AMAZON_PRODUCTS_CATALOG.length} available)...`);
+
+    if (AMAZON_PRODUCTS_CATALOG.length === 0) {
+      console.warn('⚠️ No Amazon products available');
+      return [];
+    }
 
     let products = AMAZON_PRODUCTS_CATALOG
       .filter(p => p.price >= minPrice && p.price <= maxPrice)
-      .filter(p => !categories || categories.includes(p.category))
-      .map((p, index) => ({
-        ...p,
-        id: createProductId('amazon', `amz-${index}`),
-        source: 'amazon' as const,
-        difficulty: calculateDifficulty(p.price),
-        updatedAt: new Date().toISOString(),
-      }));
+      .filter(p => {
+        if (!categories) return true;
+        const mappedCategory = CATEGORY_MAP[p.category];
+        return mappedCategory && categories.includes(mappedCategory);
+      })
+      .map(p => {
+        const mappedCategory = CATEGORY_MAP[p.category] || 'Eletrónicos';
+        
+        return {
+          id: createProductId('amazon', p.asin),
+          name: p.name,
+          brand: extractBrand(p.name), // Extract brand from product name
+          category: mappedCategory,
+          price: p.price,
+          currency: 'EUR' as const,
+          imageUrl: p.imageUrl,
+          store: 'Amazon ES',
+          description: p.name.substring(0, 100), // Use truncated name as description
+          source: 'amazon' as const,
+          difficulty: calculateDifficulty(p.price),
+          updatedAt: new Date().toISOString(),
+        } as Product;
+      });
+
+    // Shuffle for variety
+    products = shuffleArray(products);
 
     if (maxProducts) {
       products = products.slice(0, maxProducts);
     }
 
-    console.log(`✅ Loaded ${products.length} Amazon products`);
+    console.log(`✅ Loaded ${products.length} Amazon ES products`);
     return products;
   }
 
   async test(): Promise<boolean> {
-    return true; // Always works (static data)
+    return AMAZON_PRODUCTS_CATALOG.length > 0;
   }
 }
 
 /**
- * TODO: Future enhancement
- * 
- * Integrate with real Amazon Product Advertising API:
- * - Register for Amazon Associates program
- * - Get API credentials
- * - Use paapi5-nodejs-sdk
- * 
- * Or use third-party services:
- * - Rainforest API (https://www.rainforestapi.com/)
- * - ScraperAPI with Amazon integration
- * - Oxylabs Real-Time Crawler
+ * Extract brand from product name (first word or known brand)
  */
+function extractBrand(name: string): string {
+  const knownBrands = [
+    'Apple', 'Samsung', 'Sony', 'LG', 'Amazon', 'Philips', 'Bosch',
+    'LEGO', 'Nike', 'Adidas', 'HP', 'Lenovo', 'Xiaomi', 'Logitech',
+    'Corsair', 'Razer', 'ASUS', 'MSI', 'Dyson', 'Roomba', 'JBL',
+    'Bose', 'Cosori', 'Potensic', 'XIAOMI', 'Tapo',
+  ];
 
+  for (const brand of knownBrands) {
+    if (name.includes(brand)) {
+      return brand;
+    }
+  }
+
+  // Fallback: return first word
+  const firstWord = name.split(' ')[0];
+  return firstWord.length > 2 ? firstWord : 'Amazon';
+}
+
+/**
+ * Shuffle array using Fisher-Yates algorithm
+ */
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}

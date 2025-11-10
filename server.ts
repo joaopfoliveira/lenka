@@ -4,12 +4,37 @@ import next from 'next';
 import { Server } from 'socket.io';
 import { gameManager } from './lib/gameManager';
 
+// Allow self-signed certificates in development (for KuantoKusta API)
+if (process.env.NODE_ENV !== 'production') {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+  console.log('⚠️  DEV MODE: SSL certificate validation disabled');
+}
+
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = dev ? 'localhost' : '0.0.0.0';
 const port = parseInt(process.env.PORT || '3000', 10);
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
+
+// Track active timers per lobby to clean them up when needed
+const activeTimers = new Map<string, NodeJS.Timeout[]>();
+
+function addTimer(lobbyCode: string, timer: NodeJS.Timeout) {
+  if (!activeTimers.has(lobbyCode)) {
+    activeTimers.set(lobbyCode, []);
+  }
+  activeTimers.get(lobbyCode)!.push(timer);
+}
+
+function clearAllTimers(lobbyCode: string) {
+  const timers = activeTimers.get(lobbyCode);
+  if (timers) {
+    console.log(`🧹 Clearing ${timers.length} active timers for lobby ${lobbyCode}`);
+    timers.forEach(timer => clearInterval(timer));
+    activeTimers.delete(lobbyCode);
+  }
+}
 
 app.prepare().then(() => {
   const httpServer = createServer(async (req, res) => {
@@ -40,6 +65,7 @@ app.prepare().then(() => {
     socket.removeAllListeners('lobby:leave');
     socket.removeAllListeners('game:start');
     socket.removeAllListeners('guess:submit');
+    socket.removeAllListeners('player:ready');
     socket.removeAllListeners('game:reset');
 
     // Create lobby
@@ -95,7 +121,10 @@ app.prepare().then(() => {
       try {
         const { lobby, shouldDelete, newHostId } = gameManager.leaveLobby(code, socket.id);
         
-        if (!shouldDelete && lobby) {
+        if (shouldDelete) {
+          // Lobby is empty, clean up all timers
+          clearAllTimers(code);
+        } else if (lobby) {
           console.log(`📢 Broadcasting updated lobby state (${lobby.players.length} players remaining)`);
           if (newHostId) {
             console.log(`👑 New host: ${newHostId}`);
@@ -111,19 +140,43 @@ app.prepare().then(() => {
     });
 
     // Start game
-    socket.on('game:start', ({ code }) => {
+    socket.on('game:start', async ({ code }) => {
       console.log('🎮 Received game:start request for lobby:', code);
       try {
-        const lobby = gameManager.startGame(code);
-        console.log('🎮 Game start result:', lobby ? 'Success' : 'Failed (null)');
+        // Step 1: Set loading state
+        const loadingLobby = gameManager.startGame(code);
         
-        if (!lobby) {
+        if (!loadingLobby) {
           console.error('❌ Failed to start game - lobby not found or invalid state');
           socket.emit('error', { message: 'Failed to start game' });
           return;
         }
         
-        console.log('✅ Game started successfully, current product:', lobby.currentProduct?.name);
+        console.log('⏳ Game entering loading state...');
+        
+        // Notify clients that we're loading products
+        io.to(code).emit('game:loading', {
+          message: 'A buscar produtos da API do KuantoKusta...',
+          totalRounds: loadingLobby.roundsTotal
+        });
+        
+        // Step 2: Fetch products asynchronously (APENAS KuantoKusta API)
+        let lobby;
+        try {
+          lobby = await gameManager.fetchProductsAndStart(code);
+          
+          if (!lobby) {
+            throw new Error('Failed to fetch products from KuantoKusta API');
+          }
+        } catch (error: any) {
+          console.error('❌ KuantoKusta API failed:', error);
+          io.to(code).emit('error', { 
+            message: 'Falha ao buscar produtos da API. Por favor tenta novamente.' 
+          });
+          return;
+        }
+        
+        console.log('✅ Game started successfully with product:', lobby.currentProduct?.name);
 
         io.to(code).emit('game:started', {
           product: lobby.currentProduct,
@@ -131,8 +184,8 @@ app.prepare().then(() => {
           totalRounds: lobby.roundsTotal
         });
 
-        // Start countdown
-        let timeLeft = 15;
+        // Start countdown (30 seconds = double)
+        let timeLeft = 30;
         const countdown = setInterval(() => {
           timeLeft--;
           io.to(code).emit('round:update', { timeLeft });
@@ -145,35 +198,58 @@ app.prepare().then(() => {
             if (results) {
               io.to(code).emit('round:results', results);
 
-              // Move to next round after 5 seconds
-              setTimeout(() => {
-                const updatedLobby = gameManager.nextRound(code);
-                
-                if (updatedLobby && updatedLobby.status === 'finished') {
-                  // Game ended - use the results we already calculated (includes final leaderboard)
-                  console.log('🏁 Game finished! Final leaderboard:', results.leaderboard);
-                  io.to(code).emit('game:ended', { 
-                    finalLeaderboard: results.leaderboard
-                  });
-                } else if (updatedLobby && updatedLobby.currentProduct) {
-                  // Next round
-                  io.to(code).emit('game:started', {
-                    product: updatedLobby.currentProduct,
-                    roundIndex: updatedLobby.currentRoundIndex,
-                    totalRounds: updatedLobby.roundsTotal
-                  });
-
-                  // Restart countdown for next round
-                  startRoundCountdown(code);
-                }
-              }, 5000);
+              // Wait for all players to be ready (or 120s timeout)
+              waitForPlayersReady(code, results);
             }
           }
         }, 1000);
+        addTimer(code, countdown);
+
+        // Helper function to wait for all players to be ready
+        function waitForPlayersReady(lobbyCode: string, results: any) {
+          let readyTimeout = 120; // 2 minutes timeout
+          const readyTimer = setInterval(() => {
+            readyTimeout--;
+            io.to(lobbyCode).emit('ready:timeout', { timeLeft: readyTimeout });
+
+            // Check if all players are ready or timeout reached
+            if (gameManager.allPlayersReady(lobbyCode) || readyTimeout <= 0) {
+              clearInterval(readyTimer);
+              
+              if (readyTimeout <= 0) {
+                console.log('⏰ Ready timeout reached, forcing next round');
+              } else {
+                console.log('✅ All players ready, moving to next round');
+              }
+
+              const updatedLobby = gameManager.nextRound(lobbyCode);
+              
+              if (updatedLobby && updatedLobby.status === 'finished') {
+                // Game ended - CLEAR ALL TIMERS
+                console.log('🏁 Game finished! Clearing all timers...');
+                clearAllTimers(lobbyCode);
+                io.to(lobbyCode).emit('game:ended', { 
+                  finalLeaderboard: results.leaderboard
+                });
+              } else if (updatedLobby && updatedLobby.currentProduct) {
+                // Next round
+                io.to(lobbyCode).emit('game:started', {
+                  product: updatedLobby.currentProduct,
+                  roundIndex: updatedLobby.currentRoundIndex,
+                  totalRounds: updatedLobby.roundsTotal
+                });
+
+                // Restart countdown for next round
+                startRoundCountdown(lobbyCode);
+              }
+            }
+          }, 1000);
+          addTimer(lobbyCode, readyTimer);
+        }
 
         // Helper function to start countdown (for recursive rounds)
         function startRoundCountdown(lobbyCode: string) {
-          let time = 15;
+          let time = 30; // 30 seconds (double)
           const timer = setInterval(() => {
             time--;
             io.to(lobbyCode).emit('round:update', { timeLeft: time });
@@ -184,28 +260,13 @@ app.prepare().then(() => {
               const results = gameManager.calculateRoundResults(lobbyCode);
               if (results) {
                 io.to(lobbyCode).emit('round:results', results);
-
-                setTimeout(() => {
-                  const updatedLobby = gameManager.nextRound(lobbyCode);
-                  
-                  if (updatedLobby && updatedLobby.status === 'finished') {
-                    // Game ended - use the results we already calculated
-                    console.log('🏁 Game finished! Final leaderboard:', results.leaderboard);
-                    io.to(lobbyCode).emit('game:ended', { 
-                      finalLeaderboard: results.leaderboard
-                    });
-                  } else if (updatedLobby && updatedLobby.currentProduct) {
-                    io.to(lobbyCode).emit('game:started', {
-                      product: updatedLobby.currentProduct,
-                      roundIndex: updatedLobby.currentRoundIndex,
-                      totalRounds: updatedLobby.roundsTotal
-                    });
-                    startRoundCountdown(lobbyCode);
-                  }
-                }, 5000);
+                
+                // Wait for players to be ready
+                waitForPlayersReady(lobbyCode, results);
               }
             }
           }, 1000);
+          addTimer(lobbyCode, timer);
         }
       } catch (error) {
         socket.emit('error', { message: 'Failed to start game' });
@@ -221,14 +282,37 @@ app.prepare().then(() => {
       }
     });
 
-    // Play again
-    socket.on('game:reset', ({ code }) => {
+    // Player ready for next round
+    socket.on('player:ready', ({ code }) => {
+      console.log(`✅ Player ${socket.id} marked ready in lobby ${code}`);
       try {
-        const lobby = gameManager.resetGame(code);
+        const lobby = gameManager.setPlayerReady(code, socket.id, true);
         if (lobby) {
+          // Broadcast updated ready state to all players
           io.to(code).emit('lobby:state', lobby);
         }
       } catch (error) {
+        socket.emit('error', { message: 'Failed to mark ready' });
+      }
+    });
+
+    // Play again
+    socket.on('game:reset', ({ code }) => {
+      console.log('🔄 Game reset requested for lobby:', code);
+      try {
+        // Clear all timers from previous game
+        clearAllTimers(code);
+        
+        const lobby = gameManager.resetGame(code);
+        if (lobby) {
+          console.log(`✅ Lobby ${code} reset to waiting state with ${lobby.players.length} players`);
+          io.to(code).emit('lobby:state', lobby);
+          console.log('📤 Sent fresh lobby:state to all clients');
+        } else {
+          console.error(`❌ Failed to reset lobby ${code} - lobby not found`);
+        }
+      } catch (error) {
+        console.error('❌ Error resetting game:', error);
         socket.emit('error', { message: 'Failed to reset game' });
       }
     });
@@ -246,15 +330,17 @@ app.prepare().then(() => {
         
         const { lobby: updatedLobby, shouldDelete, newHostId } = gameManager.leaveLobby(code, socket.id);
         
-        if (!shouldDelete && updatedLobby) {
+        if (shouldDelete) {
+          console.log(`🗑️ Lobby ${code} was deleted (no players left)`);
+          // Clean up all timers for this lobby
+          clearAllTimers(code);
+        } else if (updatedLobby) {
           console.log(`📢 Broadcasting updated lobby after disconnect (${updatedLobby.players.length} players remaining)`);
           if (newHostId) {
             console.log(`👑 New host assigned: ${newHostId}`);
           }
           // Notify remaining players
           io.to(code).emit('lobby:state', updatedLobby);
-        } else if (shouldDelete) {
-          console.log(`🗑️ Lobby ${code} was deleted (no players left)`);
         }
       }
     });

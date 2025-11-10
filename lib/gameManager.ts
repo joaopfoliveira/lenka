@@ -1,4 +1,5 @@
-import { Product, getRandomProducts } from '../data/products';
+import { Product } from './productTypes';
+import { fetchRandomKuantoKustaProductsAPI } from './fetchers/kuantokusta-api.fetcher';
 
 export type Player = {
   id: string;
@@ -11,12 +12,13 @@ export type Lobby = {
   code: string;
   players: Player[];
   hostId: string;
-  status: 'waiting' | 'playing' | 'finished';
+  status: 'waiting' | 'playing' | 'finished' | 'loading'; // Added 'loading' status
   roundsTotal: number;
   currentRoundIndex: number;
   currentProduct?: Product;
   products?: Product[];
   guesses: Record<string, number>;
+  readyPlayers: Record<string, boolean>; // Track who is ready for next round
   createdAt: number;
 };
 
@@ -50,6 +52,7 @@ class GameManager {
       roundsTotal,
       currentRoundIndex: 0,
       guesses: {},
+      readyPlayers: {},
       createdAt: Date.now()
     };
 
@@ -142,7 +145,7 @@ class GameManager {
     return { lobby, shouldDelete: false, newHostId };
   }
 
-  // Start game
+  // Start game - Set loading state
   startGame(code: string): Lobby | null {
     const lobby = this.lobbies.get(code);
     
@@ -150,17 +153,48 @@ class GameManager {
       return null;
     }
 
-    // Select random products for this game
-    lobby.products = getRandomProducts(lobby.roundsTotal);
-    lobby.status = 'playing';
-    lobby.currentRoundIndex = 0;
-    lobby.currentProduct = lobby.products[0];
-    lobby.guesses = {};
-
-    // Reset all player scores
-    lobby.players.forEach(p => p.score = 0);
+    // Set loading state
+    lobby.status = 'loading';
 
     return lobby;
+  }
+
+  // Fetch products and start game (async)
+  async fetchProductsAndStart(code: string): Promise<Lobby | null> {
+    const lobby = this.lobbies.get(code);
+    
+    if (!lobby || lobby.status !== 'loading') {
+      return null;
+    }
+
+    try {
+      console.log(`🎮 Fetching ${lobby.roundsTotal} products for lobby ${code}...`);
+      
+      // SEMPRE usa API do KuantoKusta (sem fallback!)
+      lobby.products = await fetchRandomKuantoKustaProductsAPI(lobby.roundsTotal);
+      
+      console.log(`✅ Fetched ${lobby.products.length} products from KuantoKusta API`);
+      
+      // Start the game
+      lobby.status = 'playing';
+      lobby.currentRoundIndex = 0;
+      lobby.currentProduct = lobby.products[0];
+      lobby.guesses = {};
+      lobby.readyPlayers = {};
+
+      // Reset all player scores
+      lobby.players.forEach(p => p.score = 0);
+
+      return lobby;
+    } catch (error) {
+      console.error(`❌ Error fetching products from KuantoKusta API for lobby ${code}:`, error);
+      
+      // SEM FALLBACK - volta ao lobby se API falhar
+      lobby.status = 'waiting';
+      lobby.products = undefined;
+      
+      throw new Error('Failed to fetch products from KuantoKusta API. Please try again.');
+    }
   }
 
   // Submit guess
@@ -203,8 +237,9 @@ class GameManager {
 
       if (hasGuessed) {
         difference = Math.abs(guess - realPrice);
-        // Scoring formula: max(0, 1000 - diff * 400)
-        pointsEarned = Math.max(0, Math.round(1000 - difference * 400));
+        // Scoring formula: max(0, 1000 - diff * 50)
+        // More forgiving: €20 diff = 0pts, €10 diff = 500pts, €2 diff = 900pts
+        pointsEarned = Math.max(0, Math.round(1000 - difference * 50));
         player.score += pointsEarned;
       }
 
@@ -246,6 +281,7 @@ class GameManager {
       // Next round
       lobby.currentProduct = lobby.products[lobby.currentRoundIndex];
       lobby.guesses = {};
+      lobby.readyPlayers = {}; // Reset ready status for new round
     }
 
     return lobby;
@@ -264,11 +300,37 @@ class GameManager {
     lobby.currentProduct = undefined;
     lobby.products = undefined;
     lobby.guesses = {};
+    lobby.readyPlayers = {};
     
     // Reset scores
     lobby.players.forEach(p => p.score = 0);
 
     return lobby;
+  }
+
+  // Mark player as ready for next round
+  setPlayerReady(code: string, playerId: string, isReady: boolean = true): Lobby | null {
+    const lobby = this.lobbies.get(code);
+    
+    if (!lobby) {
+      return null;
+    }
+
+    if (isReady) {
+      lobby.readyPlayers[playerId] = true;
+    } else {
+      delete lobby.readyPlayers[playerId];
+    }
+
+    return lobby;
+  }
+
+  // Check if all players are ready
+  allPlayersReady(code: string): boolean {
+    const lobby = this.lobbies.get(code);
+    if (!lobby) return false;
+
+    return lobby.players.every(p => lobby.readyPlayers[p.id] === true);
   }
 
   // Get lobby state

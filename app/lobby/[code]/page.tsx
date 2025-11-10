@@ -10,20 +10,24 @@ import {
   leaveLobby,
   startGame,
   submitGuess,
+  markPlayerReady,
   resetGame,
+  removeAllGameListeners,
   onLobbyState,
   onPlayerJoined,
   onPlayerLeft,
+  onGameLoading,
   onGameStarted,
   onRoundUpdate,
   onRoundResults,
   onGameEnded,
+  onReadyTimeout,
   onError,
   getSocket,
 } from '@/lib/socketClient';
 import { Lobby, Player } from '@/lib/gameManager';
 import { Product } from '@/data/products';
-import Image from 'next/image';
+import ProductImage from '@/app/components/ProductImage';
 
 export default function LobbyPage() {
   const params = useParams();
@@ -43,31 +47,76 @@ export default function LobbyPage() {
   const [finalLeaderboard, setFinalLeaderboard] = useState<any>(null);
   const [error, setError] = useState('');
   const [isStarting, setIsStarting] = useState(false);
-  const [nextRoundCountdown, setNextRoundCountdown] = useState(5);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
+  const [readyTimeout, setReadyTimeout] = useState(120);
+  const [isReady, setIsReady] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   
   const mountedRef = useRef(false);
-  const listenersAttached = useRef(false);
+  const activeTimeouts = useRef<NodeJS.Timeout[]>([]); // Track all active timeouts
+  const cleanupFunctionsRef = useRef<(() => void)[]>([]); // Track cleanup functions
+
+  // Helper to add and track timeouts
+  const addTimeout = (callback: () => void, delay: number) => {
+    const timeout = setTimeout(() => {
+      callback();
+      // Remove from active list
+      activeTimeouts.current = activeTimeouts.current.filter(t => t !== timeout);
+    }, delay);
+    activeTimeouts.current.push(timeout);
+    return timeout;
+  };
+
+  // Helper to clear all timeouts
+  const clearAllTimeouts = () => {
+    console.log(`🧹 Clearing ${activeTimeouts.current.length} active timeouts`);
+    activeTimeouts.current.forEach(timeout => clearTimeout(timeout));
+    activeTimeouts.current = [];
+  };
 
   useEffect(() => {
     console.log('🚀 Lobby page effect running for code:', code);
     mountedRef.current = true;
-    
-    // Skip if already initialized
-    if (listenersAttached.current) {
-      console.log('⚠️ Listeners already attached, skipping initialization');
-      return;
-    }
-    listenersAttached.current = true;
 
     const playerName = localStorage.getItem('playerName');
     if (!playerName) {
       router.push('/');
       return;
     }
+    
+    console.log('🔌 Setting up fresh event listeners...');
+
+    // Store cleanup functions
+    const cleanupFunctions: (() => void)[] = [];
 
     // Set up event listeners FIRST before connecting
     const unsubLobbyState = onLobbyState((lobbyData) => {
       console.log('Received lobby state:', lobbyData);
+      
+      // CRITICAL: If status changed to 'waiting', clear ALL game-related state
+      if (lobbyData.status === 'waiting' && lobby && lobby.status !== 'waiting') {
+        console.log('🔄 Lobby reset detected - clearing all game state');
+        
+        // Clear all state (listeners remain active for next game)
+        setCurrentProduct(null);
+        setRoundIndex(0);
+        setTotalRounds(lobbyData.roundsTotal);
+        setTimeLeft(15);
+        setGuess('');
+        setHasSubmitted(false);
+        setShowResults(false);
+        setRoundResults(null);
+        setFinalLeaderboard(null);
+        setIsReady(false);
+        setReadyTimeout(120);
+        setIsStarting(false);
+        setIsLoadingProducts(false);
+        setLoadingMessage('');
+        setIsResetting(false);
+      }
+      
       setLobby(lobbyData);
       const socket = getSocket();
       const player = lobbyData.players.find((p: Player) => p.id === socket.id);
@@ -98,8 +147,18 @@ export default function LobbyPage() {
       });
     });
 
+    const unsubGameLoading = onGameLoading(({ message, totalRounds: total }) => {
+      console.log('⏳ Loading products:', message);
+      setIsLoadingProducts(true);
+      setLoadingMessage(message);
+      setTotalRounds(total);
+      setIsStarting(false); // Clear starting flag
+    });
+
     const unsubGameStarted = onGameStarted(({ product, roundIndex: rIndex, totalRounds: total }) => {
       console.log('🎮 Game started! Product:', product.name);
+      setIsLoadingProducts(false); // Clear loading state
+      setLoadingMessage('');
       setIsStarting(false); // Reset the starting flag
       setCurrentProduct(product);
       setRoundIndex(rIndex);
@@ -117,9 +176,21 @@ export default function LobbyPage() {
     });
 
     const unsubRoundResults = onRoundResults((results) => {
+      console.log('📊 Round results received:', results);
+      console.log('📊 Points breakdown:', results.results.map((r: any) => ({
+        player: r.playerName,
+        points: r.pointsEarned,
+        guess: r.guess,
+        diff: r.difference
+      })));
       setRoundResults(results);
       setShowResults(true);
-      setNextRoundCountdown(5); // Reset countdown to 5 seconds
+      setReadyTimeout(120); // Reset ready timeout to 120 seconds
+      setIsReady(false); // Reset ready state
+    });
+
+    const unsubReadyTimeout = onReadyTimeout(({ timeLeft }) => {
+      setReadyTimeout(timeLeft);
     });
 
     const unsubGameEnded = onGameEnded(({ finalLeaderboard: leaderboard }) => {
@@ -128,6 +199,7 @@ export default function LobbyPage() {
       setCurrentProduct(null);
       setShowResults(false); // Clear round results so game over screen shows
       setRoundResults(null);
+      setIsReady(false);
       // Update lobby status to finished
       setLobby((prev) => {
         if (!prev) return prev;
@@ -139,7 +211,9 @@ export default function LobbyPage() {
       console.error('❌ Error received:', message);
       setError(message);
       setIsStarting(false); // Reset starting flag on error
-      setTimeout(() => setError(''), 5000);
+      setIsLoadingProducts(false); // Reset loading products flag on error
+      setLoadingMessage(''); // Clear loading message
+      addTimeout(() => setError(''), 5000);
     });
 
     // NOW connect and initialize after all listeners are set up
@@ -169,33 +243,43 @@ export default function LobbyPage() {
 
     initializeSocket();
 
+    // Store all cleanup functions
+    cleanupFunctions.push(unsubLobbyState);
+    cleanupFunctions.push(unsubPlayerJoined);
+    cleanupFunctions.push(unsubPlayerLeft);
+    cleanupFunctions.push(unsubGameLoading);
+    cleanupFunctions.push(unsubGameStarted);
+    cleanupFunctions.push(unsubRoundUpdate);
+    cleanupFunctions.push(unsubRoundResults);
+    cleanupFunctions.push(unsubReadyTimeout);
+    cleanupFunctions.push(unsubGameEnded);
+    cleanupFunctions.push(unsubError);
+
     return () => {
-      console.log('🧹 Cleanup called, mounted:', mountedRef.current);
+      console.log('🧹 Cleanup: Removing all event listeners and timeouts');
       mountedRef.current = false;
       
-      // Don't detach listeners - they should persist
-      // This way they work even after Strict Mode remount
-      // unsubLobbyState();
-      // unsubPlayerJoined();
-      // unsubPlayerLeft();
-      // unsubGameStarted();
-      // unsubRoundUpdate();
-      // unsubRoundResults();
-      // unsubGameEnded();
-      // unsubError();
+      // Clear all pending timeouts
+      clearAllTimeouts();
+      
+      // Remove all game-related listeners (extra safety)
+      try {
+        removeAllGameListeners();
+      } catch (error) {
+        console.error('Error removing game listeners:', error);
+      }
+      
+      // Call all cleanup functions
+      console.log(`🧹 Calling ${cleanupFunctions.length} cleanup functions`);
+      cleanupFunctions.forEach(cleanup => {
+        try {
+          cleanup();
+        } catch (error) {
+          console.error('Error during cleanup:', error);
+        }
+      });
     };
   }, [code, router]);
-
-  // Countdown for next round
-  useEffect(() => {
-    if (!showResults || nextRoundCountdown <= 0) return;
-
-    const timer = setInterval(() => {
-      setNextRoundCountdown((prev) => Math.max(0, prev - 1));
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [showResults, nextRoundCountdown]);
 
   const handleStartGame = () => {
     console.log('🎮 Start Game clicked. Lobby:', lobby, 'isStarting:', isStarting);
@@ -229,16 +313,51 @@ export default function LobbyPage() {
   };
 
   const handlePlayAgain = () => {
-    if (lobby) {
+    if (isResetting || !lobby) {
+      console.log('⚠️ Play Again already in progress or no lobby');
+      return;
+    }
+    
+    console.log('🔄 Play Again clicked');
+    setIsResetting(true);
+    
+    try {
       resetGame(lobby.code);
+      // Reset flag after a delay to prevent spam
+      addTimeout(() => setIsResetting(false), 1000);
+    } catch (error) {
+      console.error('Failed to reset game:', error);
+      setIsResetting(false);
+    }
+  };
+
+  const handleMarkReady = () => {
+    if (lobby && !isReady) {
+      setIsReady(true);
+      markPlayerReady(lobby.code);
     }
   };
 
   const handleLeaveLobby = () => {
-    if (lobby) {
-      leaveLobby(lobby.code);
+    if (isLeaving || !lobby) {
+      console.log('⚠️ Leave already in progress or no lobby');
+      return;
     }
-    router.push('/');
+    
+    console.log('👋 Leaving lobby');
+    setIsLeaving(true);
+    
+    try {
+      leaveLobby(lobby.code);
+      // Small delay before navigation to ensure socket message is sent
+      addTimeout(() => {
+        router.push('/');
+      }, 100);
+    } catch (error) {
+      console.error('Failed to leave lobby:', error);
+      setIsLeaving(false);
+      router.push('/');
+    }
   };
 
   const copyLobbyCode = () => {
@@ -272,6 +391,30 @@ export default function LobbyPage() {
     );
   }
 
+  // Loading products screen
+  if (isLoadingProducts) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-2xl text-center">
+          <div className="mb-6">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-purple-500 border-t-transparent mx-auto mb-4"></div>
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">Preparing Game...</h1>
+            <p className="text-lg text-gray-600 mb-4">{loadingMessage}</p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-gray-700">
+              <p className="mb-2">🔍 Searching KuantoKusta.pt for {totalRounds} random products</p>
+              <p className="text-xs text-gray-500">This ensures fresh, real-time prices!</p>
+            </div>
+          </div>
+          <div className="flex justify-center gap-2">
+            <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+            <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+            <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Playing - Show results (check FIRST before waiting/finished screens)
   if (showResults && roundResults) {
     return (
@@ -279,16 +422,22 @@ export default function LobbyPage() {
         <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-8 w-full max-w-4xl relative">
           <button
             onClick={handleLeaveLobby}
-            className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 bg-red-500 hover:bg-red-600 text-white text-xs sm:text-sm font-semibold px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg transition duration-200 shadow-md z-10"
+            disabled={isLeaving}
+            className={`absolute bottom-2 right-2 sm:bottom-4 sm:right-4 text-white text-xs sm:text-sm font-semibold px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg transition duration-200 shadow-md z-10 ${
+              isLeaving ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600'
+            }`}
           >
-            Leave
+            {isLeaving ? '...' : 'Leave'}
           </button>
           
           <div className="text-center mb-4 sm:mb-6">
-            <h1 className="text-xl sm:text-3xl font-bold text-green-600 mb-1 sm:mb-2">Round {roundIndex + 1} Results</h1>
-            <p className="text-base sm:text-xl text-gray-700">
-              Real Price: <span className="font-bold text-green-600">€{roundResults.realPrice.toFixed(2)}</span>
-            </p>
+            <h1 className="text-xl sm:text-3xl font-bold text-green-600 mb-2 sm:mb-3">Round {roundIndex + 1} Results</h1>
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-500 rounded-xl p-3 sm:p-4 inline-block">
+              <p className="text-xs sm:text-sm text-gray-600 mb-1">Real Price</p>
+              <p className="text-3xl sm:text-5xl font-bold text-green-600">
+                €{roundResults.realPrice.toFixed(2)}
+              </p>
+            </div>
           </div>
 
           <div className="mb-4 sm:mb-6 overflow-x-auto">
@@ -312,7 +461,9 @@ export default function LobbyPage() {
                       {result.guess !== null ? `€${result.difference.toFixed(2)}` : '-'}
                     </td>
                     <td className="px-2 sm:px-4 py-2 sm:py-3 text-right font-bold text-green-600 text-xs sm:text-base">
-                      +{result.pointsEarned}
+                      {result.pointsEarned !== undefined && result.pointsEarned !== null 
+                        ? `+${Math.round(result.pointsEarned)}` 
+                        : '+0'}
                     </td>
                   </tr>
                 ))}
@@ -334,18 +485,51 @@ export default function LobbyPage() {
             </div>
           </div>
 
-          <div className="text-center mt-4 sm:mt-6">
-            {roundIndex + 1 < totalRounds ? (
-              <div className="text-gray-600">
-                <p className="text-sm sm:text-lg">Next round starting in...</p>
-                <p className="text-2xl sm:text-4xl font-bold text-lenka-red mt-1 sm:mt-2">{nextRoundCountdown}s</p>
+          {/* Ready System */}
+          <div className="mt-4 sm:mt-6 space-y-3">
+            {/* Ready Button */}
+            <div className="flex justify-center">
+              {!isReady ? (
+                <button
+                  onClick={handleMarkReady}
+                  className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg transition duration-200 text-base sm:text-lg shadow-lg"
+                >
+                  ✓ Ready for Next Round
+                </button>
+              ) : (
+                <div className="bg-green-100 border-2 border-green-500 text-green-700 font-bold py-3 px-8 rounded-lg text-center text-base sm:text-lg">
+                  ✓ You are ready!
+                </div>
+              )}
+            </div>
+
+            {/* Ready Status */}
+            <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm sm:text-base text-gray-700 font-medium">
+                  Ready Players: {lobby?.readyPlayers ? Object.keys(lobby.readyPlayers).length : 0} / {lobby?.players.length || 0}
+                </span>
+                <span className="text-xs sm:text-sm text-gray-600">
+                  Auto-start: {Math.floor(readyTimeout / 60)}:{String(readyTimeout % 60).padStart(2, '0')}
+                </span>
               </div>
-            ) : (
-              <div className="text-gray-600">
-                <p className="text-sm sm:text-lg">Final results coming in...</p>
-                <p className="text-2xl sm:text-4xl font-bold text-lenka-red mt-1 sm:mt-2">{nextRoundCountdown}s</p>
+              
+              {/* Player Pills */}
+              <div className="flex flex-wrap gap-1.5">
+                {lobby?.players.map((player) => (
+                  <div
+                    key={player.id}
+                    className={`px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm transition-colors ${
+                      lobby.readyPlayers?.[player.id]
+                        ? 'bg-green-500 text-white'
+                        : 'bg-gray-200 text-gray-700'
+                    }`}
+                  >
+                    {player.name} {lobby.readyPlayers?.[player.id] && '✓'}
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
@@ -359,9 +543,12 @@ export default function LobbyPage() {
         <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-8 w-full max-w-2xl relative">
           <button
             onClick={handleLeaveLobby}
-            className="absolute bottom-2 right-2 sm:bottom-4 sm:right-4 bg-red-500 hover:bg-red-600 text-white text-xs sm:text-sm font-semibold px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg transition duration-200 shadow-md z-10"
+            disabled={isLeaving}
+            className={`absolute bottom-2 right-2 sm:bottom-4 sm:right-4 text-white text-xs sm:text-sm font-semibold px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg transition duration-200 shadow-md z-10 ${
+              isLeaving ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600'
+            }`}
           >
-            Leave
+            {isLeaving ? '...' : 'Leave'}
           </button>
           
           <div className="text-center mb-3 sm:mb-6">
@@ -380,23 +567,37 @@ export default function LobbyPage() {
             )}
           </div>
 
-          <div className="mb-4 sm:mb-6 text-center">
-            <div className="mb-2 sm:mb-4 bg-gray-100 rounded-lg p-2 sm:p-4 inline-block">
-              <Image
-                src={currentProduct.imageUrl}
-                alt={currentProduct.name}
-                width={200}
-                height={200}
-                className="rounded-lg w-[180px] h-[180px] sm:w-[250px] sm:h-[250px] object-cover"
-              />
+          {/* Product Section - Compact and well-separated */}
+          <div className="mb-6 sm:mb-8">
+            {/* Product Image Container - Strict dimensions */}
+            <div className="w-full flex justify-center mb-5 sm:mb-7">
+              <div className="bg-gray-100 rounded-lg p-3 sm:p-4 shadow-sm overflow-hidden">
+                <div className="w-[140px] h-[140px] sm:w-[180px] sm:h-[180px] flex items-center justify-center">
+                  <ProductImage
+                    src={currentProduct.imageUrl}
+                    alt={currentProduct.name}
+                    width={140}
+                    height={140}
+                    className="max-w-[140px] max-h-[140px] sm:max-w-[180px] sm:max-h-[180px]"
+                  />
+                </div>
+              </div>
             </div>
-            <h2 className="text-lg sm:text-2xl font-bold text-gray-800 mb-1 sm:mb-2 px-2">{currentProduct.name}</h2>
-            {currentProduct.brand && (
-              <p className="text-lenka-mustard font-bold mb-0.5 sm:mb-1 text-base sm:text-lg">{currentProduct.brand}</p>
-            )}
-            <p className="text-gray-600 text-sm sm:text-base">
-              Store: <span className="font-semibold">{currentProduct.store}</span>
-            </p>
+            
+            {/* Product Info - Below image with clear gap */}
+            <div className="w-full text-center px-4 sm:px-6">
+              <h2 className="text-xs sm:text-lg md:text-xl font-bold text-gray-800 mb-1 sm:mb-2 break-words leading-tight max-w-full overflow-hidden">
+                {currentProduct.name}
+              </h2>
+              {currentProduct.brand && (
+                <p className="text-lenka-mustard font-bold mb-1 text-xs sm:text-sm md:text-base">
+                  {currentProduct.brand}
+                </p>
+              )}
+              <p className="text-gray-600 text-xs sm:text-sm">
+                Store: <span className="font-semibold">{currentProduct.store}</span>
+              </p>
+            </div>
           </div>
 
           <div className="mb-4 sm:mb-6">
@@ -489,17 +690,27 @@ export default function LobbyPage() {
           {currentPlayer?.isHost && (
             <button
               onClick={handlePlayAgain}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2.5 sm:py-3 px-6 rounded-lg transition duration-200 mb-2 text-sm sm:text-base"
+              disabled={isResetting || isLeaving}
+              className={`w-full font-semibold py-2.5 sm:py-3 px-6 rounded-lg transition duration-200 mb-2 text-sm sm:text-base ${
+                isResetting || isLeaving
+                  ? 'bg-gray-400 cursor-not-allowed text-gray-600'
+                  : 'bg-purple-600 hover:bg-purple-700 text-white'
+              }`}
             >
-              Play Again
+              {isResetting ? 'Resetting...' : 'Play Again'}
             </button>
           )}
 
           <button
             onClick={handleLeaveLobby}
-            className="w-full bg-gray-300 hover:bg-gray-400 text-gray-700 font-semibold py-2.5 sm:py-3 px-6 rounded-lg transition duration-200 text-sm sm:text-base"
+            disabled={isLeaving || isResetting}
+            className={`w-full font-semibold py-2.5 sm:py-3 px-6 rounded-lg transition duration-200 text-sm sm:text-base ${
+              isLeaving || isResetting
+                ? 'bg-gray-400 cursor-not-allowed text-gray-600'
+                : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
+            }`}
           >
-            Leave Lobby
+            {isLeaving ? 'Leaving...' : 'Leave Lobby'}
           </button>
         </div>
       </div>
@@ -564,9 +775,14 @@ export default function LobbyPage() {
 
           <button
             onClick={handleLeaveLobby}
-            className="w-full bg-gray-300 hover:bg-gray-400 text-gray-700 font-semibold py-2.5 sm:py-3 px-6 rounded-lg transition duration-200 mt-2 text-sm sm:text-base"
+            disabled={isLeaving}
+            className={`w-full font-semibold py-2.5 sm:py-3 px-6 rounded-lg transition duration-200 mt-2 text-sm sm:text-base ${
+              isLeaving
+                ? 'bg-gray-400 cursor-not-allowed text-gray-600'
+                : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
+            }`}
           >
-            Leave Lobby
+            {isLeaving ? 'Leaving...' : 'Leave Lobby'}
           </button>
         </div>
       </div>
