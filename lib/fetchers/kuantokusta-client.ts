@@ -6,7 +6,10 @@
 
 import { Product } from '../productTypes';
 
-const BASE_URL = 'https://api.kuantokusta.pt';
+// Use our proxy API to bypass CORS
+const PROXY_BASE_URL = typeof window !== 'undefined' 
+  ? `${window.location.origin}/api/kuantokusta`
+  : '/api/kuantokusta';
 
 interface KuantoKustaCategory {
   id: number;
@@ -58,24 +61,25 @@ const CATEGORY_MAP: Record<string, string> = {
 };
 
 /**
- * Fetch categories from KuantoKusta API (runs in browser)
+ * Fetch categories from KuantoKusta API via our proxy (runs in browser)
  */
 async function fetchCategories(): Promise<KuantoKustaCategory[]> {
   try {
-    console.log(`🌐 [CLIENT] Fetching categories from: ${BASE_URL}/categories`);
-    const response = await fetch(`${BASE_URL}/categories`);
+    const proxyUrl = `${PROXY_BASE_URL}/categories`;
+    console.log(`🌐 [CLIENT] Fetching categories via proxy: ${proxyUrl}`);
+    const response = await fetch(proxyUrl);
     
     console.log(`🌐 [CLIENT] Categories response status: ${response.status}`);
     
     if (!response.ok) {
-      throw new Error(`API returned ${response.status} ${response.statusText}`);
+      throw new Error(`Proxy returned ${response.status} ${response.statusText}`);
     }
     
     const categories = await response.json();
-    console.log(`✅ [CLIENT] Got ${categories.length} categories`);
+    console.log(`✅ [CLIENT] Got ${categories.length} categories via proxy`);
     return categories;
   } catch (error: any) {
-    console.error('❌ [CLIENT] Error fetching categories:', error);
+    console.error('❌ [CLIENT] Error fetching categories via proxy:', error);
     console.error('❌ [CLIENT] Error details:', {
       name: error.name,
       message: error.message,
@@ -86,25 +90,24 @@ async function fetchCategories(): Promise<KuantoKustaCategory[]> {
 }
 
 /**
- * Fetch products from a specific category
+ * Fetch products from a specific category via our proxy
  */
 async function fetchProductsFromCategory(
   categoryId: number,
   count: number = 9
 ): Promise<KuantoKustaProduct[]> {
   try {
-    const response = await fetch(
-      `${BASE_URL}/products/popular?categoryId=${categoryId}&rows=${count}`
-    );
+    const proxyUrl = `${PROXY_BASE_URL}/products?categoryId=${categoryId}&rows=${count}`;
+    const response = await fetch(proxyUrl);
     
     if (!response.ok) {
-      throw new Error(`API returned ${response.status}`);
+      throw new Error(`Proxy returned ${response.status}`);
     }
     
     const products = await response.json();
     return products;
   } catch (error) {
-    console.error(`❌ Client: Error fetching products from category ${categoryId}:`, error);
+    console.error(`❌ [CLIENT] Error fetching products from category ${categoryId} via proxy:`, error);
     return [];
   }
 }
