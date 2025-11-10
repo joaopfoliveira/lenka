@@ -201,22 +201,44 @@ class GameManager {
   startGameWithClientProducts(code: string, products: Product[]): Lobby | null {
     const lobby = this.lobbies.get(code);
     
+    console.log(`🔍 [VALIDATION] Starting validation for lobby ${code}`);
+    console.log(`🔍 [VALIDATION] Lobby status: ${lobby?.status}`);
+    console.log(`🔍 [VALIDATION] Products received: ${products?.length || 0}`);
+    console.log(`🔍 [VALIDATION] Products type: ${typeof products}`);
+    console.log(`🔍 [VALIDATION] Products is array: ${Array.isArray(products)}`);
+    
     if (!lobby || lobby.status !== 'loading') {
-      console.error(`❌ Cannot start game: lobby ${code} not in loading state`);
+      console.error(`❌ Cannot start game: lobby ${code} not in loading state (status: ${lobby?.status || 'no lobby'})`);
       return null;
     }
 
     // Validate products
     if (!products || products.length < lobby.roundsTotal) {
-      console.error(`❌ Invalid products: expected ${lobby.roundsTotal}, got ${products?.length || 0}`);
+      console.error(`❌ Invalid products count: expected ${lobby.roundsTotal}, got ${products?.length || 0}`);
       lobby.status = 'waiting';
       return null;
     }
 
     // Validate each product structure (anti-cheating)
-    for (const product of products) {
+    console.log(`🔍 [VALIDATION] Validating ${products.length} products...`);
+    for (let i = 0; i < products.length; i++) {
+      const product = products[i];
+      console.log(`🔍 [VALIDATION] Product ${i + 1}:`, {
+        hasId: !!product.id,
+        hasName: !!product.name,
+        priceType: typeof product.price,
+        price: product.price,
+        priceValid: typeof product.price === 'number' && product.price > 0
+      });
+      
       if (!product.id || !product.name || typeof product.price !== 'number' || product.price <= 0) {
-        console.error(`❌ Invalid product structure:`, product);
+        console.error(`❌ Invalid product structure at index ${i}:`, {
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          priceType: typeof product.price,
+          fullProduct: product
+        });
         lobby.status = 'waiting';
         return null;
       }
