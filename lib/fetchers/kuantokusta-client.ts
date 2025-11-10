@@ -62,16 +62,25 @@ const CATEGORY_MAP: Record<string, string> = {
  */
 async function fetchCategories(): Promise<KuantoKustaCategory[]> {
   try {
+    console.log(`🌐 [CLIENT] Fetching categories from: ${BASE_URL}/categories`);
     const response = await fetch(`${BASE_URL}/categories`);
     
+    console.log(`🌐 [CLIENT] Categories response status: ${response.status}`);
+    
     if (!response.ok) {
-      throw new Error(`API returned ${response.status}`);
+      throw new Error(`API returned ${response.status} ${response.statusText}`);
     }
     
     const categories = await response.json();
+    console.log(`✅ [CLIENT] Got ${categories.length} categories`);
     return categories;
-  } catch (error) {
-    console.error('❌ Client: Error fetching categories:', error);
+  } catch (error: any) {
+    console.error('❌ [CLIENT] Error fetching categories:', error);
+    console.error('❌ [CLIENT] Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
     throw error;
   }
 }
