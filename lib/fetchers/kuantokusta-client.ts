@@ -119,6 +119,14 @@ function convertToProduct(kProduct: any): Product {
   // Try different price fields (API uses "priceMin")
   const price = kProduct.priceMin || kProduct.price || kProduct.minPrice || kProduct.lowestPrice || kProduct.bestPrice || 0;
   
+  // Try different image fields
+  const imageUrl = kProduct.image || kProduct.imageUrl || kProduct.img || kProduct.thumbnail || '';
+  
+  // Log if no image found (temporary debug)
+  if (!imageUrl) {
+    console.log('⚠️ [CLIENT] Product without image:', kProduct.name, 'Fields:', Object.keys(kProduct));
+  }
+  
   const gameCategory = CATEGORY_MAP[kProduct.category] || 'Outros';
   
   return {
@@ -128,7 +136,7 @@ function convertToProduct(kProduct: any): Product {
     category: gameCategory as any,
     price: typeof price === 'number' ? price : parseFloat(price) || 0,
     currency: 'EUR',
-    imageUrl: kProduct.imageUrl || 'https://via.placeholder.com/300?text=No+Image',
+    imageUrl: imageUrl || '', // Empty string instead of placeholder
     store: 'KuantoKusta',
     storeUrl: kProduct.storeUrl || 'https://www.kuantokusta.pt',
     description: `${kProduct.brand} ${kProduct.name}`,

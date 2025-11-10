@@ -24,11 +24,12 @@ export default function ProductImage({
   className = '',
   priority = false
 }: ProductImageProps) {
-  const [imageError, setImageError] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  // If src is empty or invalid, treat as error immediately
+  const [imageError, setImageError] = useState(!src || src.trim() === '');
+  const [isLoading, setIsLoading] = useState(!imageError);
 
   // Fallback placeholder image (simple colored background with text)
-  const fallbackSrc = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='${width}' height='${height}'%3E%3Crect width='${width}' height='${height}' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='14' fill='%239ca3af'%3EImagem não disponível%3C/text%3E%3C/svg%3E`;
+  const fallbackSrc = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='${width}' height='${height}'%3E%3Crect width='${width}' height='${height}' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='14' fill='%239ca3af'%3ESem Imagem%3C/text%3E%3C/svg%3E`;
 
   const handleError = () => {
     console.warn(`Failed to load image: ${src}`);
@@ -65,13 +66,6 @@ export default function ProductImage({
         priority={priority}
         unoptimized // Allow external images without Next.js optimization
       />
-
-      {/* Error state indicator */}
-      {imageError && (
-        <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded z-10">
-          ⚠️
-        </div>
-      )}
     </div>
   );
 }
