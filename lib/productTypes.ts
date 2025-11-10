@@ -5,13 +5,14 @@
 
 // Product source types
 export type ProductSource = 
-  | 'supermarket'  // SuperSave API (Continente, Pingo Doce, Auchan)
-  | 'amazon'       // Amazon products
-  | 'marketplace'  // Generic marketplace
-  | 'automotive'   // Cars, motorcycles
-  | 'real-estate'  // Houses, apartments
-  | 'electronics'  // Tech products
-  | 'fashion'      // Clothing, accessories
+  | 'supermarket'   // SuperSave API (Continente, Pingo Doce, Auchan)
+  | 'kuantokusta'   // KuantoKusta API (multiple stores)
+  | 'amazon'        // Amazon products
+  | 'marketplace'   // Generic marketplace
+  | 'automotive'    // Cars, motorcycles
+  | 'real-estate'   // Houses, apartments
+  | 'electronics'   // Tech products
+  | 'fashion'       // Clothing, accessories
   | 'other';
 
 // Main product categories
