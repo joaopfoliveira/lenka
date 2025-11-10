@@ -59,22 +59,50 @@ const CATEGORY_GROUPS: Record<string, string[]> = {
   'sports': ['Desporto', 'Fitness', 'Outdoor'],
 };
 
+// Fallback categories if API fails (common popular categories)
+const FALLBACK_CATEGORIES: KuantoKustaCategory[] = [
+  { id: 155, label: 'Smartphones', slug: 'smartphones', hasChild: false },
+  { id: 156, label: 'Tablets', slug: 'tablets', hasChild: false },
+  { id: 158, label: 'Portáteis', slug: 'portateis', hasChild: false },
+  { id: 161, label: 'Computadores', slug: 'computadores', hasChild: false },
+  { id: 163, label: 'Gaming', slug: 'gaming', hasChild: false },
+  { id: 166, label: 'TV', slug: 'tv', hasChild: false },
+  { id: 167, label: 'Áudio', slug: 'audio', hasChild: false },
+  { id: 170, label: 'Fotografia', slug: 'fotografia', hasChild: false },
+  { id: 172, label: 'Electrodomésticos', slug: 'electrodomesticos', hasChild: false },
+  { id: 175, label: 'Smart Home', slug: 'smart-home', hasChild: false },
+  { id: 180, label: 'Desporto', slug: 'desporto', hasChild: false },
+  { id: 182, label: 'Moda', slug: 'moda', hasChild: false },
+  { id: 185, label: 'Beleza', slug: 'beleza', hasChild: false },
+  { id: 188, label: 'Saúde', slug: 'saude', hasChild: false },
+  { id: 190, label: 'Brinquedos', slug: 'brinquedos', hasChild: false },
+];
+
 /**
  * Fetch all available categories from KuantoKusta API
  */
 async function fetchCategories(): Promise<KuantoKustaCategory[]> {
   try {
-    const response = await fetch(`${BASE_URL}/categories`);
+    const response = await fetch(`${BASE_URL}/categories`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'pt-PT,pt;q=0.9,en;q=0.8',
+        'Referer': 'https://www.kuantokusta.pt/',
+        'Origin': 'https://www.kuantokusta.pt',
+      }
+    });
     
     if (!response.ok) {
-      throw new Error(`API returned ${response.status}`);
+      console.warn(`⚠️  API returned ${response.status}, using fallback categories`);
+      return FALLBACK_CATEGORIES;
     }
     
     const categories = await response.json();
     return categories;
   } catch (error) {
-    console.error('❌ Error fetching categories:', error);
-    return [];
+    console.error('❌ Error fetching categories, using fallback:', error);
+    return FALLBACK_CATEGORIES;
   }
 }
 
@@ -87,7 +115,16 @@ async function fetchProductsFromCategory(
 ): Promise<KuantoKustaProduct[]> {
   try {
     const response = await fetch(
-      `${BASE_URL}/products/popular?categoryId=${categoryId}&rows=${count}`
+      `${BASE_URL}/products/popular?categoryId=${categoryId}&rows=${count}`,
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/plain, */*',
+          'Accept-Language': 'pt-PT,pt;q=0.9,en;q=0.8',
+          'Referer': 'https://www.kuantokusta.pt/',
+          'Origin': 'https://www.kuantokusta.pt',
+        }
+      }
     );
     
     if (!response.ok) {
