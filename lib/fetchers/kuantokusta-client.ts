@@ -115,7 +115,15 @@ async function fetchProductsFromCategory(
 /**
  * Convert KuantoKusta product to our Product format
  */
-function convertToProduct(kProduct: KuantoKustaProduct): Product {
+function convertToProduct(kProduct: any): Product {
+  // Log raw product to see actual structure
+  console.log('🔍 [CLIENT] Raw KuantoKusta product:', kProduct);
+  
+  // Try different price fields (API might use different names)
+  const price = kProduct.price || kProduct.minPrice || kProduct.lowestPrice || kProduct.bestPrice || 0;
+  
+  console.log(`🔍 [CLIENT] Extracted price: ${price} from product ${kProduct.name}`);
+  
   const gameCategory = CATEGORY_MAP[kProduct.category] || 'Outros';
   
   return {
@@ -123,14 +131,14 @@ function convertToProduct(kProduct: KuantoKustaProduct): Product {
     name: kProduct.name,
     brand: kProduct.brand || 'Unknown',
     category: gameCategory as any,
-    price: kProduct.price,
+    price: typeof price === 'number' ? price : parseFloat(price) || 0,
     currency: 'EUR',
     imageUrl: kProduct.imageUrl || 'https://via.placeholder.com/300?text=No+Image',
     store: 'KuantoKusta',
     storeUrl: kProduct.storeUrl || 'https://www.kuantokusta.pt',
     description: `${kProduct.brand} ${kProduct.name}`,
     source: 'kuantokusta',
-    difficulty: kProduct.price < 50 ? 'easy' : kProduct.price < 200 ? 'medium' : 'hard',
+    difficulty: price < 50 ? 'easy' : price < 200 ? 'medium' : 'hard',
     updatedAt: new Date().toISOString(),
   };
 }
@@ -205,8 +213,14 @@ export async function fetchRandomKuantoKustaProductsFromBrowser(
             if (!seenProductIds.has(kkProduct.productId)) {
               seenProductIds.add(kkProduct.productId);
               const converted = convertToProduct(kkProduct);
-              allProducts.push(converted);
-              addedFromCategory++;
+              
+              // Only add products with valid price > 0
+              if (converted.price && converted.price > 0) {
+                allProducts.push(converted);
+                addedFromCategory++;
+              } else {
+                console.warn(`⚠️ [CLIENT] Skipping product without valid price: ${converted.name}`);
+              }
             }
           }
         }
