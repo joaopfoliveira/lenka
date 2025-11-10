@@ -159,7 +159,7 @@ class GameManager {
     return lobby;
   }
 
-  // Fetch products and start game (async)
+  // Fetch products and start game (async) - SERVER-SIDE (BACKUP METHOD)
   async fetchProductsAndStart(code: string): Promise<Lobby | null> {
     const lobby = this.lobbies.get(code);
     
@@ -168,12 +168,12 @@ class GameManager {
     }
 
     try {
-      console.log(`🎮 Fetching ${lobby.roundsTotal} products for lobby ${code}...`);
+      console.log(`🎮 [SERVER BACKUP] Fetching ${lobby.roundsTotal} products for lobby ${code}...`);
       
       // SEMPRE usa API do KuantoKusta (sem fallback!)
       lobby.products = await fetchRandomKuantoKustaProductsAPI(lobby.roundsTotal);
       
-      console.log(`✅ Fetched ${lobby.products.length} products from KuantoKusta API`);
+      console.log(`✅ [SERVER] Fetched ${lobby.products.length} products from KuantoKusta API`);
       
       // Start the game
       lobby.status = 'playing';
@@ -187,7 +187,7 @@ class GameManager {
 
       return lobby;
     } catch (error) {
-      console.error(`❌ Error fetching products from KuantoKusta API for lobby ${code}:`, error);
+      console.error(`❌ [SERVER] Error fetching products from KuantoKusta API for lobby ${code}:`, error);
       
       // SEM FALLBACK - volta ao lobby se API falhar
       lobby.status = 'waiting';
@@ -195,6 +195,47 @@ class GameManager {
       
       throw new Error('Failed to fetch products from KuantoKusta API. Please try again.');
     }
+  }
+
+  // Start game with products from client (NEW - PRIMARY METHOD)
+  startGameWithClientProducts(code: string, products: Product[]): Lobby | null {
+    const lobby = this.lobbies.get(code);
+    
+    if (!lobby || lobby.status !== 'loading') {
+      console.error(`❌ Cannot start game: lobby ${code} not in loading state`);
+      return null;
+    }
+
+    // Validate products
+    if (!products || products.length < lobby.roundsTotal) {
+      console.error(`❌ Invalid products: expected ${lobby.roundsTotal}, got ${products?.length || 0}`);
+      lobby.status = 'waiting';
+      return null;
+    }
+
+    // Validate each product structure (anti-cheating)
+    for (const product of products) {
+      if (!product.id || !product.name || typeof product.price !== 'number' || product.price <= 0) {
+        console.error(`❌ Invalid product structure:`, product);
+        lobby.status = 'waiting';
+        return null;
+      }
+    }
+
+    console.log(`✅ [CLIENT] Received ${products.length} valid products for lobby ${code}`);
+
+    // Store products and start game
+    lobby.products = products.slice(0, lobby.roundsTotal); // Limit to required rounds
+    lobby.status = 'playing';
+    lobby.currentRoundIndex = 0;
+    lobby.currentProduct = lobby.products[0];
+    lobby.guesses = {};
+    lobby.readyPlayers = {};
+
+    // Reset all player scores
+    lobby.players.forEach(p => p.score = 0);
+
+    return lobby;
   }
 
   // Submit guess

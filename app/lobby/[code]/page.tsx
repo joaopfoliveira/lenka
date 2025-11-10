@@ -9,6 +9,7 @@ import {
   joinLobby,
   leaveLobby,
   startGame,
+  startGameWithProducts,
   submitGuess,
   markPlayerReady,
   resetGame,
@@ -28,6 +29,7 @@ import {
 import { Lobby, Player } from '@/lib/gameManager';
 import { Product } from '@/data/products';
 import ProductImage from '@/app/components/ProductImage';
+import { fetchRandomKuantoKustaProductsFromBrowser } from '@/lib/fetchers/kuantokusta-client';
 
 export default function LobbyPage() {
   const params = useParams();
@@ -281,7 +283,7 @@ export default function LobbyPage() {
     };
   }, [code, router]);
 
-  const handleStartGame = () => {
+  const handleStartGame = async () => {
     console.log('🎮 Start Game clicked. Lobby:', lobby, 'isStarting:', isStarting);
     
     // Prevent double-clicks
@@ -290,12 +292,33 @@ export default function LobbyPage() {
       return;
     }
     
-    if (lobby) {
-      setIsStarting(true);
-      console.log('🎮 Starting game with code:', lobby.code);
-      startGame(lobby.code);
-    } else {
+    if (!lobby) {
       console.error('❌ No lobby available!');
+      return;
+    }
+
+    setIsStarting(true);
+    setIsLoadingProducts(true);
+    setLoadingMessage('A buscar produtos...');
+
+    try {
+      console.log('🌐 [CLIENT] Attempting to fetch products from browser...');
+      
+      // Try to fetch products from browser (bypasses server IP 403 issue)
+      const products = await fetchRandomKuantoKustaProductsFromBrowser(lobby.roundsTotal);
+      
+      if (products && products.length >= lobby.roundsTotal) {
+        console.log('✅ [CLIENT] Successfully fetched products from browser, sending to server...');
+        startGameWithProducts(lobby.code, products);
+      } else {
+        throw new Error('Insufficient products fetched from browser');
+      }
+    } catch (error) {
+      console.warn('⚠️ [CLIENT] Browser fetch failed, falling back to server method:', error);
+      
+      // Fallback: use server-side fetch (old method)
+      console.log('🔄 [FALLBACK] Using server-side API fetch...');
+      startGame(lobby.code);
     }
   };
 

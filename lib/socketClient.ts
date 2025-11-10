@@ -94,6 +94,12 @@ export function startGame(code: string) {
   socket.emit('game:start', { code });
 }
 
+export function startGameWithProducts(code: string, products: any[]) {
+  const socket = getSocket();
+  console.log('🎮 [CLIENT] Emitting game:start-with-products for lobby:', code, 'products:', products.length);
+  socket.emit('game:start-with-products', { code, products });
+}
+
 export function submitGuess(code: string, value: number) {
   const socket = getSocket();
   socket.emit('guess:submit', { code, value });

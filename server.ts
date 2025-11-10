@@ -139,9 +139,9 @@ app.prepare().then(() => {
       }
     });
 
-    // Start game
-    socket.on('game:start', async ({ code }) => {
-      console.log('🎮 Received game:start request for lobby:', code);
+    // NEW: Start game with products from client (PRIMARY METHOD - bypasses 403)
+    socket.on('game:start-with-products', async ({ code, products }) => {
+      console.log('🎮 [CLIENT] Received game:start-with-products for lobby:', code);
       try {
         // Step 1: Set loading state
         const loadingLobby = gameManager.startGame(code);
@@ -152,7 +152,125 @@ app.prepare().then(() => {
           return;
         }
         
-        console.log('⏳ Game entering loading state...');
+        console.log('✅ [CLIENT] Game entering loading state with client products...');
+        
+        // Step 2: Start game with client products (includes validation)
+        const lobby = gameManager.startGameWithClientProducts(code, products);
+        
+        if (!lobby) {
+          console.error('❌ [CLIENT] Failed to start game with client products - validation failed');
+          socket.emit('error', { message: 'Invalid products received from client' });
+          return;
+        }
+        
+        console.log('✅ [CLIENT] Game started successfully with product:', lobby.currentProduct?.name);
+
+        io.to(code).emit('game:started', {
+          product: lobby.currentProduct,
+          roundIndex: lobby.currentRoundIndex,
+          totalRounds: lobby.roundsTotal
+        });
+
+        // Start countdown (30 seconds = double)
+        let timeLeft = 30;
+        const countdown = setInterval(() => {
+          timeLeft--;
+          io.to(code).emit('round:update', { timeLeft });
+
+          if (timeLeft <= 0 || gameManager.allPlayersGuessed(code)) {
+            clearInterval(countdown);
+            
+            // Calculate results
+            const results = gameManager.calculateRoundResults(code);
+            if (results) {
+              io.to(code).emit('round:results', results);
+
+              // Wait for all players to be ready (or 120s timeout)
+              waitForPlayersReady(code, results);
+            }
+          }
+        }, 1000);
+        addTimer(code, countdown);
+
+        // Helper function to wait for all players to be ready
+        function waitForPlayersReady(lobbyCode: string, results: any) {
+          let readyTimeout = 120; // 2 minutes timeout
+          const readyTimer = setInterval(() => {
+            readyTimeout--;
+            io.to(lobbyCode).emit('ready:timeout', { timeLeft: readyTimeout });
+
+            // Check if all players are ready or timeout reached
+            if (gameManager.allPlayersReady(lobbyCode) || readyTimeout <= 0) {
+              clearInterval(readyTimer);
+              
+              if (readyTimeout <= 0) {
+                console.log('⏰ Ready timeout reached, advancing to next round');
+              }
+
+              const updatedLobby = gameManager.nextRound(lobbyCode);
+
+              if (updatedLobby && updatedLobby.status === 'finished') {
+                // Game ended - CLEAR ALL TIMERS
+                console.log('🏁 Game finished! Clearing all timers...');
+                clearAllTimers(lobbyCode);
+                io.to(lobbyCode).emit('game:ended', { 
+                  finalLeaderboard: results.leaderboard
+                });
+              } else if (updatedLobby && updatedLobby.currentProduct) {
+                // Next round
+                io.to(lobbyCode).emit('game:started', {
+                  product: updatedLobby.currentProduct,
+                  roundIndex: updatedLobby.currentRoundIndex,
+                  totalRounds: updatedLobby.roundsTotal
+                });
+
+                startRoundCountdown(lobbyCode);
+              }
+            }
+          }, 1000);
+          addTimer(lobbyCode, readyTimer);
+        }
+
+        function startRoundCountdown(lobbyCode: string) {
+          let time = 30;
+          const timer = setInterval(() => {
+            time--;
+            io.to(lobbyCode).emit('round:update', { timeLeft: time });
+
+            if (time <= 0 || gameManager.allPlayersGuessed(lobbyCode)) {
+              clearInterval(timer);
+              
+              const results = gameManager.calculateRoundResults(lobbyCode);
+              if (results) {
+                io.to(lobbyCode).emit('round:results', results);
+                
+                // Wait for players to be ready
+                waitForPlayersReady(lobbyCode, results);
+              }
+            }
+          }, 1000);
+          addTimer(lobbyCode, timer);
+        }
+      } catch (error) {
+        console.error('❌ [CLIENT] Error starting game with client products:', error);
+        socket.emit('error', { message: 'Failed to start game' });
+      }
+    });
+
+    // BACKUP: Start game with server-side API fetch (fallback if client fails)
+    socket.on('game:start', async ({ code }) => {
+      console.log('🎮 [SERVER BACKUP] Received game:start request for lobby:', code);
+      try {
+        // Step 1: Set loading state
+        const loadingLobby = gameManager.startGame(code);
+        
+        if (!loadingLobby) {
+          console.error('❌ Failed to start game - lobby not found or invalid state');
+          socket.emit('error', { message: 'Failed to start game' });
+          return;
+        }
+        
+        console.log('⏳ [SERVER BACKUP] Game entering loading state...');
         
         // Notify clients that we're loading products
         io.to(code).emit('game:loading', {
