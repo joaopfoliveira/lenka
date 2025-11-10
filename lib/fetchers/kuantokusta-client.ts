@@ -116,13 +116,8 @@ async function fetchProductsFromCategory(
  * Convert KuantoKusta product to our Product format
  */
 function convertToProduct(kProduct: any): Product {
-  // Log raw product to see actual structure
-  console.log('🔍 [CLIENT] Raw KuantoKusta product:', kProduct);
-  
-  // Try different price fields (API might use different names)
-  const price = kProduct.price || kProduct.minPrice || kProduct.lowestPrice || kProduct.bestPrice || 0;
-  
-  console.log(`🔍 [CLIENT] Extracted price: ${price} from product ${kProduct.name}`);
+  // Try different price fields (API uses "priceMin")
+  const price = kProduct.priceMin || kProduct.price || kProduct.minPrice || kProduct.lowestPrice || kProduct.bestPrice || 0;
   
   const gameCategory = CATEGORY_MAP[kProduct.category] || 'Outros';
   
@@ -218,8 +213,6 @@ export async function fetchRandomKuantoKustaProductsFromBrowser(
               if (converted.price && converted.price > 0) {
                 allProducts.push(converted);
                 addedFromCategory++;
-              } else {
-                console.warn(`⚠️ [CLIENT] Skipping product without valid price: ${converted.name}`);
               }
             }
           }
