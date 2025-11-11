@@ -50,7 +50,7 @@ export default function Home() {
         {/* Logo */}
         <div className="text-center mb-8 flex flex-col items-center">
           <Logo width={200} height={100} className="mb-4" />
-          <p className="text-lenka-dark font-semibold">Não foi canto, não foi golo</p>
+          <p className="text-lenka-dark font-semibold">If not a corner, not a goal</p>
         </div>
 
         {/* Menu */}
