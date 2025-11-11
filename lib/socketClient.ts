@@ -73,9 +73,9 @@ export function removeAllGameListeners() {
 }
 
 // Event emitters
-export function createLobby(roundsTotal: number, playerName: string) {
+export function createLobby(roundsTotal: number, playerName: string, productSource: 'kuantokusta' | 'temu' | 'mixed' = 'mixed') {
   const socket = getSocket();
-  socket.emit('lobby:create', { roundsTotal, playerName });
+  socket.emit('lobby:create', { roundsTotal, playerName, productSource });
 }
 
 export function joinLobby(code: string, playerName: string) {

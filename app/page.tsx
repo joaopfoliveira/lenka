@@ -10,6 +10,7 @@ export default function Home() {
   const [playerName, setPlayerName] = useState('');
   const [lobbyCode, setLobbyCode] = useState('');
   const [roundsTotal, setRoundsTotal] = useState(5);
+  const [productSource, setProductSource] = useState<'kuantokusta' | 'temu' | 'mixed'>('mixed');
   const [error, setError] = useState('');
 
   const handleCreateLobby = () => {
@@ -22,6 +23,7 @@ export default function Home() {
     localStorage.setItem('playerName', playerName);
     localStorage.setItem('createLobby', 'true');
     localStorage.setItem('roundsTotal', roundsTotal.toString());
+    localStorage.setItem('productSource', productSource);
     // Use a special code that the lobby page will recognize
     router.push('/lobby/__create__');
   };
@@ -48,7 +50,7 @@ export default function Home() {
         {/* Logo */}
         <div className="text-center mb-8 flex flex-col items-center">
           <Logo width={200} height={100} className="mb-4" />
-          <p className="text-lenka-dark font-semibold">Guess the Price & Win!</p>
+          <p className="text-lenka-dark font-semibold">Não foi canto, não foi golo</p>
         </div>
 
         {/* Menu */}
@@ -101,6 +103,29 @@ export default function Home() {
                     }`}
                   >
                     {num}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-lenka-dark font-medium mb-2">Product Source</label>
+              <div className="flex flex-col gap-2">
+                {[
+                  { value: 'kuantokusta' as const, label: 'KuantoKusta' },
+                  { value: 'temu' as const, label: 'Temu' },
+                  { value: 'mixed' as const, label: 'Mixed (Both)' }
+                ].map((source) => (
+                  <button
+                    key={source.value}
+                    onClick={() => setProductSource(source.value)}
+                    className={`py-3 px-4 rounded-lg font-semibold transition duration-200 border-2 text-left ${
+                      productSource === source.value
+                        ? 'bg-lenka-red text-white border-lenka-red'
+                        : 'bg-lenka-cream text-lenka-dark border-lenka-mustard/30 hover:border-lenka-mustard'
+                    }`}
+                  >
+                    {source.label}
                   </button>
                 ))}
               </div>

@@ -227,10 +227,12 @@ export default function LobbyPage() {
         
         if (shouldCreate && code === '__create__') {
           const roundsTotal = parseInt(localStorage.getItem('roundsTotal') || '5');
-          console.log('Creating lobby with', roundsTotal, 'rounds');
-          createLobby(roundsTotal, playerName);
+          const productSource = (localStorage.getItem('productSource') || 'mixed') as 'kuantokusta' | 'temu' | 'mixed';
+          console.log('Creating lobby with', roundsTotal, 'rounds, source:', productSource);
+          createLobby(roundsTotal, playerName, productSource);
           localStorage.removeItem('createLobby');
           localStorage.removeItem('roundsTotal');
+          localStorage.removeItem('productSource');
         } else {
           console.log('Joining lobby', code);
           joinLobby(code, playerName);

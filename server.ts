@@ -69,10 +69,10 @@ app.prepare().then(() => {
     socket.removeAllListeners('game:reset');
 
     // Create lobby
-    socket.on('lobby:create', ({ roundsTotal, playerName }) => {
-      console.log('📝 Creating lobby for player:', playerName, 'rounds:', roundsTotal);
+    socket.on('lobby:create', ({ roundsTotal, playerName, productSource }) => {
+      console.log('📝 Creating lobby for player:', playerName, 'rounds:', roundsTotal, 'source:', productSource || 'mixed');
       try {
-        const lobby = gameManager.createLobby(roundsTotal, playerName, socket.id);
+        const lobby = gameManager.createLobby(roundsTotal, playerName, socket.id, productSource || 'mixed');
         socket.join(lobby.code);
         console.log('✅ Lobby created:', lobby.code);
         socket.emit('lobby:state', lobby);

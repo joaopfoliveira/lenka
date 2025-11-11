@@ -20,6 +20,7 @@ export type Lobby = {
   products?: Product[];
   guesses: Record<string, number>;
   readyPlayers: Record<string, boolean>; // Track who is ready for next round
+  productSource: 'kuantokusta' | 'temu' | 'mixed'; // Where to fetch products from
   createdAt: number;
 };
 
@@ -37,7 +38,7 @@ class GameManager {
   }
 
   // Create new lobby
-  createLobby(roundsTotal: number, hostName: string, hostId: string): Lobby {
+  createLobby(roundsTotal: number, hostName: string, hostId: string, productSource: 'kuantokusta' | 'temu' | 'mixed' = 'mixed'): Lobby {
     const code = this.generateCode();
     
     const lobby: Lobby = {
@@ -54,6 +55,7 @@ class GameManager {
       currentRoundIndex: 0,
       guesses: {},
       readyPlayers: {},
+      productSource,
       createdAt: Date.now()
     };
 
@@ -169,21 +171,36 @@ class GameManager {
     }
 
     try {
-      console.log(`🎮 [SERVER] Fetching ${lobby.roundsTotal} products for lobby ${code}...`);
+      console.log(`🎮 [SERVER] Fetching ${lobby.roundsTotal} products for lobby ${code} (source: ${lobby.productSource})...`);
       
-      // Split products 50/50 between KuantoKusta and Temu
-      const kkCount = Math.ceil(lobby.roundsTotal / 2);
-      const temuCount = Math.floor(lobby.roundsTotal / 2);
+      let kkProducts: Product[] = [];
+      let temuProducts: Product[] = [];
       
-      console.log(`🛒 [SERVER] Fetching ${kkCount} from KuantoKusta, ${temuCount} from Temu...`);
-      
-      // Fetch from both sources in parallel
-      const [kkProducts, temuProducts] = await Promise.all([
-        fetchRandomKuantoKustaProductsAPI(kkCount),
-        fetchRandomTemuProducts(temuCount),
-      ]);
-      
-      console.log(`✅ [SERVER] Got ${kkProducts.length} from KuantoKusta, ${temuProducts.length} from Temu`);
+      if (lobby.productSource === 'mixed') {
+        // Split products 50/50 between KuantoKusta and Temu
+        const kkCount = Math.ceil(lobby.roundsTotal / 2);
+        const temuCount = Math.floor(lobby.roundsTotal / 2);
+        
+        console.log(`🛒 [SERVER] Fetching ${kkCount} from KuantoKusta, ${temuCount} from Temu...`);
+        
+        // Fetch from both sources in parallel
+        [kkProducts, temuProducts] = await Promise.all([
+          fetchRandomKuantoKustaProductsAPI(kkCount),
+          fetchRandomTemuProducts(temuCount),
+        ]);
+        
+        console.log(`✅ [SERVER] Got ${kkProducts.length} from KuantoKusta, ${temuProducts.length} from Temu`);
+      } else if (lobby.productSource === 'kuantokusta') {
+        // Fetch only from KuantoKusta
+        console.log(`🛒 [SERVER] Fetching ${lobby.roundsTotal} from KuantoKusta only...`);
+        kkProducts = await fetchRandomKuantoKustaProductsAPI(lobby.roundsTotal);
+        console.log(`✅ [SERVER] Got ${kkProducts.length} from KuantoKusta`);
+      } else if (lobby.productSource === 'temu') {
+        // Fetch only from Temu
+        console.log(`🛒 [SERVER] Fetching ${lobby.roundsTotal} from Temu only...`);
+        temuProducts = await fetchRandomTemuProducts(lobby.roundsTotal);
+        console.log(`✅ [SERVER] Got ${temuProducts.length} from Temu`);
+      }
       
       // Combine and shuffle products
       const allProducts = [...kkProducts, ...temuProducts];
