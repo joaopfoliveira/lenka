@@ -7,7 +7,8 @@ import { Product, ProductCategory } from '../productTypes';
 
 interface TemuProductData {
   goods_id?: string;
-  goods_name?: string;
+  title?: string; // THIS IS THE PRODUCT NAME!
+  goods_name?: string; // Fallback
   image?: {
     id?: number;
     url?: string; // THIS IS THE CORRECT IMAGE FIELD!
@@ -73,7 +74,8 @@ function convertToProduct(item: TemuProductItem): Product | null {
     goodsId = match ? match[1] : undefined;
   }
   
-  const goodsName = tProduct.goods_name || 'Produto Temu';
+  // Extract product name (title is the correct field!)
+  const goodsName = tProduct.title || tProduct.goods_name || 'Produto Temu';
   
   // Price is in CENTS! Divide by 100 to get euros
   const priceCents = tProduct.price_info?.price || 0;
