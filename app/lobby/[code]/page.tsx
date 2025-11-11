@@ -352,6 +352,12 @@ export default function LobbyPage() {
           setFinalLeaderboard(leaderboard);
           setShowResults(false);
           setRoundResults(null);
+          
+          // Update lobby status to 'finished' so UI shows final screen
+          setLobby((prev) => {
+            if (!prev) return prev;
+            return { ...prev, status: 'finished' };
+          });
         }
       } else {
         // Normal ready for next round
