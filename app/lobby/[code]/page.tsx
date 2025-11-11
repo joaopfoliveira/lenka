@@ -352,6 +352,7 @@ export default function LobbyPage() {
           setFinalLeaderboard(leaderboard);
           setShowResults(false);
           setRoundResults(null);
+          setCurrentProduct(null); // Clear current product
           
           // Update lobby status to 'finished' so UI shows final screen
           setLobby((prev) => {
@@ -577,6 +578,72 @@ export default function LobbyPage() {
     );
   }
 
+  // Game finished screen (CHECK BEFORE currentProduct to prevent showing guess screen)
+  if (lobby.status === 'finished' && finalLeaderboard) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 p-2 sm:p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-8 w-full max-w-2xl">
+          <div className="text-center mb-4 sm:mb-6">
+            <h1 className="text-2xl sm:text-4xl font-bold text-lenka-red mb-1 sm:mb-2">Game Over!</h1>
+            <p className="text-gray-600 text-sm sm:text-base">Final Results</p>
+          </div>
+
+          <div className="mb-4 sm:mb-6">
+            <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4 text-gray-700">Leaderboard</h2>
+            <div className="space-y-1.5 sm:space-y-2">
+              {finalLeaderboard.map((player: any, index: number) => (
+                <div
+                  key={player.playerId}
+                  className={`flex items-center justify-between p-3 sm:p-4 rounded-lg ${
+                    index === 0
+                      ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-white'
+                      : index === 1
+                      ? 'bg-gradient-to-r from-gray-300 to-gray-400 text-gray-800'
+                      : index === 2
+                      ? 'bg-gradient-to-r from-orange-300 to-orange-400 text-gray-800'
+                      : 'bg-gray-100 text-gray-800'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <span className="text-lg sm:text-2xl font-bold">#{index + 1}</span>
+                    <span className="font-semibold text-sm sm:text-base">{player.playerName}</span>
+                  </div>
+                  <span className="text-base sm:text-xl font-bold">{player.totalScore} pts</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {currentPlayer?.isHost && (
+            <button
+              onClick={handlePlayAgain}
+              disabled={isResetting || isLeaving}
+              className={`w-full font-semibold py-2.5 sm:py-3 px-6 rounded-lg transition duration-200 mb-2 text-sm sm:text-base ${
+                isResetting || isLeaving
+                  ? 'bg-gray-400 cursor-not-allowed text-gray-600'
+                  : 'bg-lenka-red hover:bg-red-700 text-white'
+              }`}
+            >
+              {isResetting ? 'Resetting...' : 'Play Again'}
+            </button>
+          )}
+
+          <button
+            onClick={handleLeaveLobby}
+            disabled={isLeaving || isResetting}
+            className={`w-full font-semibold py-2.5 sm:py-3 px-6 rounded-lg transition duration-200 text-sm sm:text-base ${
+              isLeaving || isResetting
+                ? 'bg-gray-400 cursor-not-allowed text-gray-600'
+                : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
+            }`}
+          >
+            {isLeaving ? 'Leaving...' : 'Leave Lobby'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Playing - Guessing phase
   if (currentProduct) {
     return (
@@ -687,72 +754,6 @@ export default function LobbyPage() {
               ))}
             </div>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Game finished screen
-  if (lobby.status === 'finished' && finalLeaderboard) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 p-2 sm:p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-8 w-full max-w-2xl">
-          <div className="text-center mb-4 sm:mb-6">
-            <h1 className="text-2xl sm:text-4xl font-bold text-lenka-red mb-1 sm:mb-2">Game Over!</h1>
-            <p className="text-gray-600 text-sm sm:text-base">Final Results</p>
-          </div>
-
-          <div className="mb-4 sm:mb-6">
-            <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4 text-gray-700">Leaderboard</h2>
-            <div className="space-y-1.5 sm:space-y-2">
-              {finalLeaderboard.map((player: any, index: number) => (
-                <div
-                  key={player.playerId}
-                  className={`flex items-center justify-between p-3 sm:p-4 rounded-lg ${
-                    index === 0
-                      ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-white'
-                      : index === 1
-                      ? 'bg-gradient-to-r from-gray-300 to-gray-400 text-gray-800'
-                      : index === 2
-                      ? 'bg-gradient-to-r from-orange-300 to-orange-400 text-gray-800'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <span className="text-lg sm:text-2xl font-bold">#{index + 1}</span>
-                    <span className="font-semibold text-sm sm:text-base">{player.playerName}</span>
-                  </div>
-                  <span className="text-base sm:text-xl font-bold">{player.totalScore} pts</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {currentPlayer?.isHost && (
-            <button
-              onClick={handlePlayAgain}
-              disabled={isResetting || isLeaving}
-              className={`w-full font-semibold py-2.5 sm:py-3 px-6 rounded-lg transition duration-200 mb-2 text-sm sm:text-base ${
-                isResetting || isLeaving
-                  ? 'bg-gray-400 cursor-not-allowed text-gray-600'
-                  : 'bg-lenka-red hover:bg-red-700 text-white'
-              }`}
-            >
-              {isResetting ? 'Resetting...' : 'Play Again'}
-            </button>
-          )}
-
-          <button
-            onClick={handleLeaveLobby}
-            disabled={isLeaving || isResetting}
-            className={`w-full font-semibold py-2.5 sm:py-3 px-6 rounded-lg transition duration-200 text-sm sm:text-base ${
-              isLeaving || isResetting
-                ? 'bg-gray-400 cursor-not-allowed text-gray-600'
-                : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
-            }`}
-          >
-            {isLeaving ? 'Leaving...' : 'Leave Lobby'}
-          </button>
         </div>
       </div>
     );
