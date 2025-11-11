@@ -15,7 +15,7 @@ export default function Home() {
 
   const handleCreateLobby = () => {
     if (!playerName.trim()) {
-      setError('Please enter your name');
+      setError('Por favor insere o teu nome');
       return;
     }
     
@@ -30,12 +30,12 @@ export default function Home() {
 
   const handleJoinLobby = () => {
     if (!playerName.trim()) {
-      setError('Please enter your name');
+      setError('Por favor insere o teu nome');
       return;
     }
     
     if (!lobbyCode.trim()) {
-      setError('Please enter lobby code');
+      setError('Por favor insere o código do lobby');
       return;
     }
 
@@ -58,24 +58,24 @@ export default function Home() {
           <div className="space-y-4">
             <button
               onClick={() => setMode('create')}
-              className="w-full bg-lenka-red hover:bg-lenka-red/90 text-white font-semibold py-4 px-6 rounded-lg transition duration-200 shadow-lg border-2 border-lenka-red"
+              className="w-full bg-lenka-red hover:bg-lenka-red/90 text-white font-bold py-5 px-6 rounded-lg transition duration-200 shadow-lg hover:shadow-xl border-2 border-lenka-red text-lg"
             >
-              Create Lobby
+              🎮 Criar Lobby
             </button>
             <button
               onClick={() => setMode('join')}
-              className="w-full bg-lenka-mustard hover:bg-lenka-mustard/90 text-lenka-dark font-semibold py-4 px-6 rounded-lg transition duration-200 shadow-lg border-2 border-lenka-mustard"
+              className="w-full bg-lenka-mustard hover:bg-lenka-mustard/90 text-lenka-dark font-bold py-5 px-6 rounded-lg transition duration-200 shadow-lg hover:shadow-xl border-2 border-lenka-mustard text-lg"
             >
-              Join Lobby
+              🚪 Entrar num Lobby
             </button>
           </div>
         )}
 
         {/* Create Lobby Form */}
         {mode === 'create' && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
-              <label className="block text-lenka-dark font-medium mb-2">Your Name</label>
+              <label className="block text-lenka-dark font-semibold mb-2 text-sm">👤 O teu nome</label>
               <input
                 type="text"
                 value={playerName}
@@ -83,23 +83,23 @@ export default function Home() {
                   setPlayerName(e.target.value);
                   setError('');
                 }}
-                placeholder="Enter your name"
-                className="w-full px-4 py-3 border-2 border-lenka-mustard/30 rounded-lg focus:ring-2 focus:ring-lenka-red focus:border-lenka-red"
+                placeholder="ex: João"
+                className="w-full px-4 py-3 border-2 border-lenka-mustard/30 rounded-lg focus:ring-2 focus:ring-lenka-red focus:border-lenka-red text-lenka-dark"
                 maxLength={20}
               />
             </div>
 
             <div>
-              <label className="block text-lenka-dark font-medium mb-2">Number of Rounds</label>
-              <div className="flex gap-2">
+              <label className="block text-lenka-dark font-semibold mb-3 text-sm">🎯 Número de rondas</label>
+              <div className="flex gap-3">
                 {[5, 8, 10].map((num) => (
                   <button
                     key={num}
                     onClick={() => setRoundsTotal(num)}
-                    className={`flex-1 py-3 rounded-lg font-semibold transition duration-200 border-2 ${
+                    className={`flex-1 py-3 rounded-lg font-bold transition duration-200 border-2 text-lg ${
                       roundsTotal === num
-                        ? 'bg-lenka-red text-white border-lenka-red'
-                        : 'bg-lenka-cream text-lenka-dark border-lenka-mustard/30 hover:border-lenka-mustard'
+                        ? 'bg-lenka-red text-white border-lenka-red shadow-md'
+                        : 'bg-white text-lenka-dark border-lenka-mustard/30 hover:border-lenka-red hover:shadow'
                     }`}
                   >
                     {num}
@@ -109,57 +109,85 @@ export default function Home() {
             </div>
 
             <div>
-              <label className="block text-lenka-dark font-medium mb-2">Product Source</label>
-              <div className="flex flex-col gap-2">
+              <label className="block text-lenka-dark font-semibold mb-3 text-sm">🛒 Origem dos produtos</label>
+              <div className="grid grid-cols-1 gap-3">
                 {[
-                  { value: 'kuantokusta' as const, label: 'KuantoKusta' },
-                  { value: 'temu' as const, label: 'Temu' },
-                  { value: 'mixed' as const, label: 'Mixed (Both)' }
+                  { 
+                    value: 'kuantokusta' as const, 
+                    icon: '🇵🇹',
+                    title: 'KuantoKusta', 
+                    desc: 'Lojas portuguesas' 
+                  },
+                  { 
+                    value: 'temu' as const, 
+                    icon: '🌍',
+                    title: 'Temu', 
+                    desc: 'Produtos internacionais' 
+                  },
+                  { 
+                    value: 'mixed' as const, 
+                    icon: '🎲',
+                    title: 'Misto', 
+                    desc: 'Variedade máxima' 
+                  }
                 ].map((source) => (
                   <button
                     key={source.value}
                     onClick={() => setProductSource(source.value)}
-                    className={`py-3 px-4 rounded-lg font-semibold transition duration-200 border-2 text-left ${
+                    className={`py-3 px-4 rounded-lg transition duration-200 border-2 text-left ${
                       productSource === source.value
-                        ? 'bg-lenka-red text-white border-lenka-red'
-                        : 'bg-lenka-cream text-lenka-dark border-lenka-mustard/30 hover:border-lenka-mustard'
+                        ? 'bg-lenka-red text-white border-lenka-red shadow-md'
+                        : 'bg-white text-lenka-dark border-lenka-mustard/30 hover:border-lenka-red hover:shadow'
                     }`}
                   >
-                    {source.label}
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{source.icon}</span>
+                      <div className="flex-1">
+                        <div className="font-bold">{source.title}</div>
+                        <div className={`text-xs ${productSource === source.value ? 'text-white/80' : 'text-gray-500'}`}>
+                          {source.desc}
+                        </div>
+                      </div>
+                      {productSource === source.value && (
+                        <span className="text-xl">✓</span>
+                      )}
+                    </div>
                   </button>
                 ))}
               </div>
             </div>
 
             {error && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                {error}
+              <div className="bg-red-100 border-2 border-red-400 text-red-700 px-4 py-3 rounded-lg text-sm font-medium">
+                ⚠️ {error}
               </div>
             )}
 
-            <button
-              onClick={handleCreateLobby}
-              className="w-full bg-lenka-red hover:bg-lenka-red/90 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 border-2 border-lenka-red"
-            >
-              Create & Join
-            </button>
-            <button
-              onClick={() => {
-                setMode('menu');
-                setError('');
-              }}
-              className="w-full bg-lenka-cream hover:bg-lenka-mustard/20 text-lenka-dark font-semibold py-3 px-6 rounded-lg transition duration-200 border-2 border-lenka-mustard/30"
-            >
-              Back
-            </button>
+            <div className="pt-2 space-y-2">
+              <button
+                onClick={handleCreateLobby}
+                className="w-full bg-lenka-red hover:bg-lenka-red/90 text-white font-bold py-4 px-6 rounded-lg transition duration-200 border-2 border-lenka-red shadow-lg hover:shadow-xl text-base"
+              >
+                🎮 Criar e Entrar
+              </button>
+              <button
+                onClick={() => {
+                  setMode('menu');
+                  setError('');
+                }}
+                className="w-full bg-white hover:bg-gray-50 text-lenka-dark font-semibold py-3 px-6 rounded-lg transition duration-200 border-2 border-lenka-mustard/30 hover:border-lenka-mustard text-sm"
+              >
+                ← Voltar
+              </button>
+            </div>
           </div>
         )}
 
         {/* Join Lobby Form */}
         {mode === 'join' && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
-              <label className="block text-lenka-dark font-medium mb-2">Your Name</label>
+              <label className="block text-lenka-dark font-semibold mb-2 text-sm">👤 O teu nome</label>
               <input
                 type="text"
                 value={playerName}
@@ -167,14 +195,14 @@ export default function Home() {
                   setPlayerName(e.target.value);
                   setError('');
                 }}
-                placeholder="Enter your name"
-                className="w-full px-4 py-3 border-2 border-lenka-mustard/30 rounded-lg focus:ring-2 focus:ring-lenka-mustard focus:border-lenka-mustard"
+                placeholder="ex: João"
+                className="w-full px-4 py-3 border-2 border-lenka-mustard/30 rounded-lg focus:ring-2 focus:ring-lenka-mustard focus:border-lenka-mustard text-lenka-dark"
                 maxLength={20}
               />
             </div>
 
             <div>
-              <label className="block text-lenka-dark font-medium mb-2">Lobby Code</label>
+              <label className="block text-lenka-dark font-semibold mb-2 text-sm">🔑 Código do lobby</label>
               <input
                 type="text"
                 value={lobbyCode}
@@ -182,33 +210,35 @@ export default function Home() {
                   setLobbyCode(e.target.value.toUpperCase());
                   setError('');
                 }}
-                placeholder="Enter lobby code"
-                className="w-full px-4 py-3 border-2 border-lenka-mustard/30 rounded-lg focus:ring-2 focus:ring-lenka-mustard focus:border-lenka-mustard uppercase"
+                placeholder="ex: ABC123"
+                className="w-full px-4 py-3 border-2 border-lenka-mustard/30 rounded-lg focus:ring-2 focus:ring-lenka-mustard focus:border-lenka-mustard uppercase text-lenka-dark text-center text-xl font-bold tracking-wider"
                 maxLength={6}
               />
             </div>
 
             {error && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                {error}
+              <div className="bg-red-100 border-2 border-red-400 text-red-700 px-4 py-3 rounded-lg text-sm font-medium">
+                ⚠️ {error}
               </div>
             )}
 
-            <button
-              onClick={handleJoinLobby}
-              className="w-full bg-lenka-mustard hover:bg-lenka-mustard/90 text-lenka-dark font-semibold py-3 px-6 rounded-lg transition duration-200 border-2 border-lenka-mustard"
-            >
-              Join Lobby
-            </button>
-            <button
-              onClick={() => {
-                setMode('menu');
-                setError('');
-              }}
-              className="w-full bg-lenka-cream hover:bg-lenka-mustard/20 text-lenka-dark font-semibold py-3 px-6 rounded-lg transition duration-200 border-2 border-lenka-mustard/30"
-            >
-              Back
-            </button>
+            <div className="pt-2 space-y-2">
+              <button
+                onClick={handleJoinLobby}
+                className="w-full bg-lenka-mustard hover:bg-lenka-mustard/90 text-lenka-dark font-bold py-4 px-6 rounded-lg transition duration-200 border-2 border-lenka-mustard shadow-lg hover:shadow-xl text-base"
+              >
+                🚪 Entrar no Lobby
+              </button>
+              <button
+                onClick={() => {
+                  setMode('menu');
+                  setError('');
+                }}
+                className="w-full bg-white hover:bg-gray-50 text-lenka-dark font-semibold py-3 px-6 rounded-lg transition duration-200 border-2 border-lenka-mustard/30 hover:border-lenka-mustard text-sm"
+              >
+                ← Voltar
+              </button>
+            </div>
           </div>
         )}
       </div>
