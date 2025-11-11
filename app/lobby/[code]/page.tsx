@@ -439,9 +439,22 @@ export default function LobbyPage() {
             <h1 className="text-xl sm:text-3xl font-bold text-green-600 mb-2 sm:mb-3">Round {roundIndex + 1} Results</h1>
             <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-500 rounded-xl p-3 sm:p-4 inline-block">
               <p className="text-xs sm:text-sm text-gray-600 mb-1">Real Price</p>
-              <p className="text-3xl sm:text-5xl font-bold text-green-600">
+              <p className="text-3xl sm:text-5xl font-bold text-green-600 mb-2">
                 €{roundResults.realPrice.toFixed(2)}
               </p>
+              {roundResults.productUrl && (
+                <a
+                  href={roundResults.productUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-white hover:bg-gray-50 border-2 border-green-500 text-green-700 font-semibold rounded-lg text-xs sm:text-sm transition-colors"
+                >
+                  <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                  Ver em {roundResults.productStore}
+                </a>
+              )}
             </div>
           </div>
 

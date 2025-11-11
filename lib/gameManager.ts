@@ -276,6 +276,9 @@ class GameManager {
   // Calculate scores and get results
   calculateRoundResults(code: string): {
     realPrice: number;
+    productName: string;
+    productUrl: string;
+    productStore: string;
     results: Array<{
       playerId: string;
       playerName: string;
@@ -292,6 +295,9 @@ class GameManager {
     }
 
     const realPrice = lobby.currentProduct.price;
+    const productName = lobby.currentProduct.name;
+    const productUrl = lobby.currentProduct.storeUrl || '';
+    const productStore = lobby.currentProduct.store || 'Unknown';
     const results = lobby.players.map(player => {
       const guess = lobby.guesses[player.id];
       const hasGuessed = guess !== undefined;
@@ -324,7 +330,7 @@ class GameManager {
         totalScore: p.score
       }));
 
-    return { realPrice, results, leaderboard };
+    return { realPrice, productName, productUrl, productStore, results, leaderboard };
   }
 
   // Move to next round
