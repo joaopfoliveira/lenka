@@ -485,34 +485,52 @@ export default function LobbyPage() {
           </div>
 
           <div className="mb-4 sm:mb-6 overflow-x-auto">
-            <table className="w-full text-sm sm:text-base">
+            <table className="w-full text-xs sm:text-sm">
               <thead>
                 <tr className="bg-gray-100">
-                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-left font-semibold text-gray-700 text-xs sm:text-base">Player</th>
-                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold text-gray-700 text-xs sm:text-base">Guess</th>
-                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold text-gray-700 text-xs sm:text-base">Diff</th>
-                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold text-gray-700 text-xs sm:text-base">Points</th>
+                  <th className="px-1 sm:px-3 py-2 text-left font-semibold text-gray-700">Player</th>
+                  <th className="px-1 sm:px-3 py-2 text-right font-semibold text-gray-700">Guess</th>
+                  <th className="px-1 sm:px-3 py-2 text-right font-semibold text-gray-700">Error</th>
+                  <th className="px-1 sm:px-3 py-2 text-right font-semibold text-gray-700">Base</th>
+                  <th className="px-1 sm:px-3 py-2 text-right font-semibold text-gray-700">Bonus</th>
+                  <th className="px-1 sm:px-3 py-2 text-right font-semibold text-gray-700">Round</th>
+                  <th className="px-1 sm:px-3 py-2 text-right font-semibold text-gray-700">Total</th>
                 </tr>
               </thead>
               <tbody>
-                {roundResults.results.map((result: any) => (
-                  <tr key={result.playerId} className="border-b">
-                    <td className="px-2 sm:px-4 py-2 sm:py-3 font-medium text-gray-800 text-xs sm:text-base">{result.playerName}</td>
-                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-right text-gray-700 text-xs sm:text-base">
-                      {result.guess !== null ? `€${result.guess.toFixed(2)}` : 'No guess'}
+                {roundResults.results.map((result: any, index: number) => (
+                  <tr key={result.playerId} className={`border-b ${index < 3 ? 'bg-yellow-50' : ''}`}>
+                    <td className="px-1 sm:px-3 py-2 font-medium text-gray-800">
+                      {index === 0 && result.bonus > 0 && '🥇 '}
+                      {index === 1 && result.bonus > 0 && '🥈 '}
+                      {index === 2 && result.bonus > 0 && '🥉 '}
+                      {result.playerName}
                     </td>
-                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-right text-gray-700 text-xs sm:text-base">
-                      {result.guess !== null ? `€${result.difference.toFixed(2)}` : '-'}
+                    <td className="px-1 sm:px-3 py-2 text-right text-gray-700">
+                      {result.guess !== null ? `€${result.guess.toFixed(2)}` : '-'}
                     </td>
-                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-right font-bold text-green-600 text-xs sm:text-base">
-                      {result.pointsEarned !== undefined && result.pointsEarned !== null 
-                        ? `+${Math.round(result.pointsEarned)}` 
-                        : '+0'}
+                    <td className="px-1 sm:px-3 py-2 text-right text-gray-700">
+                      {result.guess !== null ? `${(result.errorPercentage * 100).toFixed(1)}%` : '-'}
+                    </td>
+                    <td className="px-1 sm:px-3 py-2 text-right text-blue-600 font-medium">
+                      {result.baseScore}
+                    </td>
+                    <td className="px-1 sm:px-3 py-2 text-right text-purple-600 font-medium">
+                      {result.bonus > 0 ? `+${result.bonus}` : '-'}
+                    </td>
+                    <td className="px-1 sm:px-3 py-2 text-right font-bold text-green-600">
+                      {result.roundScore}
+                    </td>
+                    <td className="px-1 sm:px-3 py-2 text-right font-bold text-lenka-red">
+                      {result.totalScore}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            <div className="mt-2 text-xs text-gray-500 text-center">
+              Base (0-1000) + Bonus (1st: +150, 2nd: +80, 3rd: +40) = Round Score
+            </div>
           </div>
 
           <div className="bg-lenka-cream rounded-lg p-3 sm:p-4 border-2 border-lenka-mustard/20">
@@ -756,6 +774,33 @@ export default function LobbyPage() {
               ))}
             </div>
           </div>
+
+          {/* Current Leaderboard - shown during game */}
+          {roundIndex > 0 && (
+            <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t">
+              <h3 className="font-semibold text-gray-700 mb-2 text-sm sm:text-base flex items-center gap-2">
+                <span>🏆</span>
+                <span>Current Standings</span>
+              </h3>
+              <div className="bg-lenka-cream rounded-lg p-3 border-2 border-lenka-mustard/20">
+                <div className="space-y-1">
+                  {[...lobby.players]
+                    .sort((a, b) => b.score - a.score)
+                    .map((player, index) => (
+                      <div key={player.id} className="flex justify-between items-center text-xs sm:text-sm">
+                        <span className="text-gray-800 font-medium">
+                          {index === 0 && '🥇 '}
+                          {index === 1 && '🥈 '}
+                          {index === 2 && '🥉 '}
+                          {index + 1}. {player.name}
+                        </span>
+                        <span className="font-bold text-lenka-red">{player.score} pts</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );

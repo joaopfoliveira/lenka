@@ -1,6 +1,12 @@
 import { Product } from './productTypes';
 import { fetchRandomKuantoKustaProductsAPI } from './fetchers/kuantokusta-api.fetcher';
 import { fetchRandomTemuProducts } from './fetchers/temu.fetcher';
+import { 
+  calculateRoundResults as scoringCalculateRoundResults, 
+  generateLeaderboard,
+  type PlayerGuess,
+  type RoundResultEntry 
+} from './scoring';
 
 export type Player = {
   id: string;
@@ -290,19 +296,13 @@ class GameManager {
     return lobby;
   }
 
-  // Calculate scores and get results
+  // Calculate scores and get results using new scoring system
   calculateRoundResults(code: string): {
     realPrice: number;
     productName: string;
     productUrl: string;
     productStore: string;
-    results: Array<{
-      playerId: string;
-      playerName: string;
-      guess: number | null;
-      difference: number;
-      pointsEarned: number;
-    }>;
+    results: RoundResultEntry[];
     leaderboard: Array<{ playerId: string; playerName: string; totalScore: number }>;
   } | null {
     const lobby = this.lobbies.get(code);
@@ -315,37 +315,33 @@ class GameManager {
     const productName = lobby.currentProduct.name;
     const productUrl = lobby.currentProduct.storeUrl || '';
     const productStore = lobby.currentProduct.store || 'Unknown';
-    const results = lobby.players.map(player => {
-      const guess = lobby.guesses[player.id];
-      const hasGuessed = guess !== undefined;
-      
-      let difference = 0;
-      let pointsEarned = 0;
+    
+    // Prepare guesses for scoring calculation
+    const guesses: PlayerGuess[] = lobby.players.map(player => ({
+      playerId: player.id,
+      playerName: player.name,
+      guess: lobby.guesses[player.id] !== undefined ? lobby.guesses[player.id] : null,
+    }));
 
-      if (hasGuessed) {
-        difference = Math.abs(guess - realPrice);
-        // Scoring formula: max(0, 1000 - diff * 50)
-        // More forgiving: €20 diff = 0pts, €10 diff = 500pts, €2 diff = 900pts
-        pointsEarned = Math.max(0, Math.round(1000 - difference * 50));
-        player.score += pointsEarned;
-      }
-
-      return {
-        playerId: player.id,
-        playerName: player.name,
-        guess: hasGuessed ? guess : null,
-        difference,
-        pointsEarned
-      };
+    // Get previous totals before this round
+    const previousTotals: Record<string, number> = {};
+    lobby.players.forEach(player => {
+      previousTotals[player.id] = player.score;
     });
 
-    const leaderboard = [...lobby.players]
-      .sort((a, b) => b.score - a.score)
-      .map(p => ({
-        playerId: p.id,
-        playerName: p.name,
-        totalScore: p.score
-      }));
+    // Calculate round results using centralized scoring system
+    const results = scoringCalculateRoundResults(guesses, realPrice, previousTotals);
+
+    // Update player scores with new totals from this round
+    results.forEach(result => {
+      const player = lobby.players.find(p => p.id === result.playerId);
+      if (player) {
+        player.score = result.totalScore;
+      }
+    });
+
+    // Generate leaderboard
+    const leaderboard = generateLeaderboard(results);
 
     return { realPrice, productName, productUrl, productStore, results, leaderboard };
   }
