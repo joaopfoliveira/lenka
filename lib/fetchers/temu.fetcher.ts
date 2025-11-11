@@ -5,21 +5,28 @@
 
 import { Product, ProductCategory } from '../productTypes';
 
-interface TemuProduct {
-  goods_id: string;
-  goods_name: string;
-  image_url: string;
-  price_info: {
-    price: string | number;
+interface TemuProductData {
+  goods_id?: string;
+  goods_name?: string;
+  image_url?: string;
+  top_gallery_url?: string;
+  link_url?: string; // Contains goods_id in URL params
+  price_info?: {
+    price?: number; // Price in cents!
+    price_str?: string;
   };
   mall_name?: string;
-  // Add more fields as needed
+}
+
+interface TemuProductItem {
+  type: number;
+  data: TemuProductData;
 }
 
 interface TemuResponse {
   success: boolean;
   result?: {
-    goods_list?: TemuProduct[];
+    home_goods_list?: TemuProductItem[];
   };
   error_code?: number;
 }
@@ -52,24 +59,43 @@ function mapToCategory(productName: string): ProductCategory {
 /**
  * Convert Temu product to our Product format
  */
-function convertToProduct(tProduct: TemuProduct): Product {
-  // Extract price (handle both string and number)
-  const priceStr = tProduct.price_info?.price || '0';
-  const price = typeof priceStr === 'number' ? priceStr : parseFloat(priceStr) || 0;
+function convertToProduct(item: TemuProductItem): Product | null {
+  const tProduct = item.data;
+  
+  // Extract goods_id from link_url if not directly available
+  let goodsId = tProduct.goods_id;
+  if (!goodsId && tProduct.link_url) {
+    const match = tProduct.link_url.match(/goods_id=(\d+)/);
+    goodsId = match ? match[1] : undefined;
+  }
+  
+  const goodsName = tProduct.goods_name || 'Produto Temu';
+  
+  // Price is in CENTS! Divide by 100 to get euros
+  const priceCents = tProduct.price_info?.price || 0;
+  const priceEuros = priceCents / 100;
+  
+  // Use top_gallery_url (high quality) or image_url
+  const imageUrl = tProduct.top_gallery_url || tProduct.image_url || '';
+  
+  // Validate minimum required fields
+  if (!goodsId || priceEuros <= 0 || !imageUrl) {
+    return null;
+  }
   
   return {
-    id: `temu-${tProduct.goods_id}`,
-    name: tProduct.goods_name,
+    id: `temu-${goodsId}`,
+    name: goodsName,
     brand: tProduct.mall_name || 'Temu',
-    category: mapToCategory(tProduct.goods_name),
-    price: price,
+    category: mapToCategory(goodsName),
+    price: priceEuros,
     currency: 'EUR',
-    imageUrl: tProduct.image_url || '',
+    imageUrl: imageUrl,
     store: 'Temu',
-    storeUrl: `https://www.temu.com/goods-${tProduct.goods_id}.html`,
-    description: tProduct.goods_name,
+    storeUrl: `https://www.temu.com/pt/goods-${goodsId}.html`,
+    description: goodsName,
     source: 'temu',
-    difficulty: price < 10 ? 'easy' : price < 30 ? 'medium' : 'hard',
+    difficulty: priceEuros < 10 ? 'easy' : priceEuros < 30 ? 'medium' : 'hard',
     updatedAt: new Date().toISOString(),
   };
 }
@@ -103,33 +129,40 @@ export async function fetchRandomTemuProducts(count: number = 10): Promise<Produ
 
     if (!response.ok) {
       console.error(`❌ [TEMU] API returned ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`❌ [TEMU] Response body:`, errorText.substring(0, 500));
       return [];
     }
 
     const data: TemuResponse = await response.json();
     
-    if (!data.success || !data.result?.goods_list) {
+    console.log(`📋 [TEMU] API Response:`, JSON.stringify(data).substring(0, 300));
+    
+    if (!data.success || !data.result?.home_goods_list) {
       console.error(`❌ [TEMU] API error: ${data.error_code || 'Unknown error'}`);
+      console.error(`❌ [TEMU] Full response:`, JSON.stringify(data));
       return [];
     }
 
-    const goodsList = data.result.goods_list;
-    console.log(`✅ [TEMU] Got ${goodsList.length} products from API`);
+    const homeGoodsList = data.result.home_goods_list;
+    console.log(`✅ [TEMU] Got ${homeGoodsList.length} items from API`);
 
     // Convert and filter products
     const products: Product[] = [];
     const seenIds = new Set<string>();
 
-    for (const tProduct of goodsList) {
+    for (const item of homeGoodsList) {
+      const goodsId = item.data.goods_id || '';
+      
       // Skip duplicates
-      if (seenIds.has(tProduct.goods_id)) continue;
+      if (seenIds.has(goodsId)) continue;
       
-      const converted = convertToProduct(tProduct);
+      const converted = convertToProduct(item);
       
-      // Only add products with valid price > 0 and image
-      if (converted.price > 0 && converted.imageUrl) {
+      // Only add valid products (convertToProduct returns null if invalid)
+      if (converted) {
         products.push(converted);
-        seenIds.add(tProduct.goods_id);
+        seenIds.add(goodsId);
         
         if (products.length >= count) break;
       }
