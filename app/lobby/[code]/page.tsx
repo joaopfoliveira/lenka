@@ -339,7 +339,24 @@ export default function LobbyPage() {
   const handleMarkReady = () => {
     if (lobby && !isReady) {
       setIsReady(true);
-      markPlayerReady(lobby.code);
+      
+      // If it's the last round, skip to final results immediately
+      const isLastRound = roundIndex + 1 === totalRounds;
+      if (isLastRound) {
+        console.log('🏁 Last round - showing final results immediately');
+        // Show final leaderboard
+        if (lobby.players) {
+          const leaderboard = lobby.players
+            .map(p => ({ playerId: p.id, playerName: p.name, totalScore: p.score }))
+            .sort((a, b) => b.totalScore - a.totalScore);
+          setFinalLeaderboard(leaderboard);
+          setShowResults(false);
+          setRoundResults(null);
+        }
+      } else {
+        // Normal ready for next round
+        markPlayerReady(lobby.code);
+      }
     }
   };
 
@@ -512,11 +529,11 @@ export default function LobbyPage() {
                   onClick={handleMarkReady}
                   className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg transition duration-200 text-base sm:text-lg shadow-lg"
                 >
-                  ✓ Ready for Next Round
+                  {roundIndex + 1 === totalRounds ? '🏁 Check Final Results' : '✓ Ready for Next Round'}
                 </button>
               ) : (
                 <div className="bg-green-100 border-2 border-green-500 text-green-700 font-bold py-3 px-8 rounded-lg text-center text-base sm:text-lg">
-                  ✓ You are ready!
+                  {roundIndex + 1 === totalRounds ? '🏁 Going to Results...' : '✓ You are ready!'}
                 </div>
               )}
             </div>
@@ -712,7 +729,7 @@ export default function LobbyPage() {
               className={`w-full font-semibold py-2.5 sm:py-3 px-6 rounded-lg transition duration-200 mb-2 text-sm sm:text-base ${
                 isResetting || isLeaving
                   ? 'bg-gray-400 cursor-not-allowed text-gray-600'
-                  : 'bg-purple-600 hover:bg-purple-700 text-white'
+                  : 'bg-lenka-red hover:bg-red-700 text-white'
               }`}
             >
               {isResetting ? 'Resetting...' : 'Play Again'}
