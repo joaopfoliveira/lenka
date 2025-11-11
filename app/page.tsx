@@ -15,7 +15,7 @@ export default function Home() {
 
   const handleCreateLobby = () => {
     if (!playerName.trim()) {
-      setError('Por favor insere o teu nome');
+      setError('Please enter your name');
       return;
     }
     
@@ -30,12 +30,12 @@ export default function Home() {
 
   const handleJoinLobby = () => {
     if (!playerName.trim()) {
-      setError('Por favor insere o teu nome');
+      setError('Please enter your name');
       return;
     }
     
     if (!lobbyCode.trim()) {
-      setError('Por favor insere o código do lobby');
+      setError('Please enter the lobby code');
       return;
     }
 
@@ -60,13 +60,13 @@ export default function Home() {
               onClick={() => setMode('create')}
               className="w-full bg-lenka-red hover:bg-lenka-red/90 text-white font-bold py-5 px-6 rounded-lg transition duration-200 shadow-lg hover:shadow-xl border-2 border-lenka-red text-lg"
             >
-              🎮 Criar Lobby
+              🎮 Create Lobby
             </button>
             <button
               onClick={() => setMode('join')}
               className="w-full bg-lenka-mustard hover:bg-lenka-mustard/90 text-lenka-dark font-bold py-5 px-6 rounded-lg transition duration-200 shadow-lg hover:shadow-xl border-2 border-lenka-mustard text-lg"
             >
-              🚪 Entrar num Lobby
+              🚪 Join Lobby
             </button>
           </div>
         )}
@@ -75,7 +75,7 @@ export default function Home() {
         {mode === 'create' && (
           <div className="space-y-5">
             <div>
-              <label className="block text-lenka-dark font-semibold mb-2 text-sm">👤 O teu nome</label>
+              <label className="block text-lenka-dark font-semibold mb-2 text-sm">👤 Your Name</label>
               <input
                 type="text"
                 value={playerName}
@@ -83,14 +83,14 @@ export default function Home() {
                   setPlayerName(e.target.value);
                   setError('');
                 }}
-                placeholder="ex: João"
+                placeholder="e.g. John"
                 className="w-full px-4 py-3 border-2 border-lenka-mustard/30 rounded-lg focus:ring-2 focus:ring-lenka-red focus:border-lenka-red text-lenka-dark"
                 maxLength={20}
               />
             </div>
 
             <div>
-              <label className="block text-lenka-dark font-semibold mb-3 text-sm">🎯 Número de rondas</label>
+              <label className="block text-lenka-dark font-semibold mb-3 text-sm">🎯 Number of Rounds</label>
               <div className="flex gap-3">
                 {[5, 8, 10].map((num) => (
                   <button
@@ -109,26 +109,26 @@ export default function Home() {
             </div>
 
             <div>
-              <label className="block text-lenka-dark font-semibold mb-3 text-sm">🛒 Origem dos produtos</label>
+              <label className="block text-lenka-dark font-semibold mb-3 text-sm">🛒 Product Source</label>
               <div className="grid grid-cols-1 gap-3">
                 {[
                   { 
                     value: 'kuantokusta' as const, 
                     icon: '🇵🇹',
                     title: 'KuantoKusta', 
-                    desc: 'Lojas portuguesas' 
+                    desc: 'Portuguese stores' 
                   },
                   { 
                     value: 'temu' as const, 
                     icon: '🌍',
                     title: 'Temu', 
-                    desc: 'Produtos internacionais' 
+                    desc: 'International products' 
                   },
                   { 
                     value: 'mixed' as const, 
                     icon: '🎲',
-                    title: 'Misto', 
-                    desc: 'Variedade máxima' 
+                    title: 'Mixed', 
+                    desc: 'Maximum variety' 
                   }
                 ].map((source) => (
                   <button
@@ -168,7 +168,7 @@ export default function Home() {
                 onClick={handleCreateLobby}
                 className="w-full bg-lenka-red hover:bg-lenka-red/90 text-white font-bold py-4 px-6 rounded-lg transition duration-200 border-2 border-lenka-red shadow-lg hover:shadow-xl text-base"
               >
-                🎮 Criar e Entrar
+                🎮 Create & Join
               </button>
               <button
                 onClick={() => {
@@ -177,7 +177,7 @@ export default function Home() {
                 }}
                 className="w-full bg-white hover:bg-gray-50 text-lenka-dark font-semibold py-3 px-6 rounded-lg transition duration-200 border-2 border-lenka-mustard/30 hover:border-lenka-mustard text-sm"
               >
-                ← Voltar
+                ← Back
               </button>
             </div>
           </div>
@@ -187,7 +187,7 @@ export default function Home() {
         {mode === 'join' && (
           <div className="space-y-5">
             <div>
-              <label className="block text-lenka-dark font-semibold mb-2 text-sm">👤 O teu nome</label>
+              <label className="block text-lenka-dark font-semibold mb-2 text-sm">👤 Your Name</label>
               <input
                 type="text"
                 value={playerName}
@@ -195,14 +195,14 @@ export default function Home() {
                   setPlayerName(e.target.value);
                   setError('');
                 }}
-                placeholder="ex: João"
+                placeholder="e.g. John"
                 className="w-full px-4 py-3 border-2 border-lenka-mustard/30 rounded-lg focus:ring-2 focus:ring-lenka-mustard focus:border-lenka-mustard text-lenka-dark"
                 maxLength={20}
               />
             </div>
 
             <div>
-              <label className="block text-lenka-dark font-semibold mb-2 text-sm">🔑 Código do lobby</label>
+              <label className="block text-lenka-dark font-semibold mb-2 text-sm">🔑 Lobby Code</label>
               <input
                 type="text"
                 value={lobbyCode}
@@ -210,7 +210,7 @@ export default function Home() {
                   setLobbyCode(e.target.value.toUpperCase());
                   setError('');
                 }}
-                placeholder="ex: ABC123"
+                placeholder="e.g. ABC123"
                 className="w-full px-4 py-3 border-2 border-lenka-mustard/30 rounded-lg focus:ring-2 focus:ring-lenka-mustard focus:border-lenka-mustard uppercase text-lenka-dark text-center text-xl font-bold tracking-wider"
                 maxLength={6}
               />
@@ -227,7 +227,7 @@ export default function Home() {
                 onClick={handleJoinLobby}
                 className="w-full bg-lenka-mustard hover:bg-lenka-mustard/90 text-lenka-dark font-bold py-4 px-6 rounded-lg transition duration-200 border-2 border-lenka-mustard shadow-lg hover:shadow-xl text-base"
               >
-                🚪 Entrar no Lobby
+                🚪 Join Lobby
               </button>
               <button
                 onClick={() => {
@@ -236,7 +236,7 @@ export default function Home() {
                 }}
                 className="w-full bg-white hover:bg-gray-50 text-lenka-dark font-semibold py-3 px-6 rounded-lg transition duration-200 border-2 border-lenka-mustard/30 hover:border-lenka-mustard text-sm"
               >
-                ← Voltar
+                ← Back
               </button>
             </div>
           </div>
