@@ -1,5 +1,6 @@
 import { Product } from './productTypes';
 import { fetchRandomKuantoKustaProductsAPI } from './fetchers/kuantokusta-api.fetcher';
+import { fetchRandomTemuProducts } from './fetchers/temu.fetcher';
 
 export type Player = {
   id: string;
@@ -168,12 +169,33 @@ class GameManager {
     }
 
     try {
-      console.log(`🎮 [SERVER BACKUP] Fetching ${lobby.roundsTotal} products for lobby ${code}...`);
+      console.log(`🎮 [SERVER] Fetching ${lobby.roundsTotal} products for lobby ${code}...`);
       
-      // SEMPRE usa API do KuantoKusta (sem fallback!)
-      lobby.products = await fetchRandomKuantoKustaProductsAPI(lobby.roundsTotal);
+      // Split products 50/50 between KuantoKusta and Temu
+      const kkCount = Math.ceil(lobby.roundsTotal / 2);
+      const temuCount = Math.floor(lobby.roundsTotal / 2);
       
-      console.log(`✅ [SERVER] Fetched ${lobby.products.length} products from KuantoKusta API`);
+      console.log(`🛒 [SERVER] Fetching ${kkCount} from KuantoKusta, ${temuCount} from Temu...`);
+      
+      // Fetch from both sources in parallel
+      const [kkProducts, temuProducts] = await Promise.all([
+        fetchRandomKuantoKustaProductsAPI(kkCount),
+        fetchRandomTemuProducts(temuCount),
+      ]);
+      
+      console.log(`✅ [SERVER] Got ${kkProducts.length} from KuantoKusta, ${temuProducts.length} from Temu`);
+      
+      // Combine and shuffle products
+      const allProducts = [...kkProducts, ...temuProducts];
+      lobby.products = allProducts.sort(() => Math.random() - 0.5).slice(0, lobby.roundsTotal);
+      
+      // Validate we have enough products
+      if (lobby.products.length < lobby.roundsTotal) {
+        throw new Error(`Insufficient products: got ${lobby.products.length}, needed ${lobby.roundsTotal}`);
+      }
+      
+      console.log(`✅ [SERVER] Combined ${lobby.products.length} products for game`);
+      console.log(`📊 [SERVER] Sources: ${lobby.products.filter(p => p.source === 'kuantokusta').length} KuantoKusta, ${lobby.products.filter(p => p.source === 'temu').length} Temu`);
       
       // Start the game
       lobby.status = 'playing';
@@ -187,13 +209,13 @@ class GameManager {
 
       return lobby;
     } catch (error) {
-      console.error(`❌ [SERVER] Error fetching products from KuantoKusta API for lobby ${code}:`, error);
+      console.error(`❌ [SERVER] Error fetching products for lobby ${code}:`, error);
       
-      // SEM FALLBACK - volta ao lobby se API falhar
+      // Volta ao lobby se API falhar
       lobby.status = 'waiting';
       lobby.products = undefined;
       
-      throw new Error('Failed to fetch products from KuantoKusta API. Please try again.');
+      throw new Error('Failed to fetch products from APIs. Please try again.');
     }
   }
 

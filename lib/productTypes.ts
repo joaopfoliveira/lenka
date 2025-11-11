@@ -7,6 +7,7 @@
 export type ProductSource = 
   | 'supermarket'   // SuperSave API (Continente, Pingo Doce, Auchan)
   | 'kuantokusta'   // KuantoKusta API (multiple stores)
+  | 'temu'          // Temu marketplace
   | 'amazon'        // Amazon products
   | 'marketplace'   // Generic marketplace
   | 'automotive'    // Cars, motorcycles
