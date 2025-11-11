@@ -8,8 +8,12 @@ import { Product, ProductCategory } from '../productTypes';
 interface TemuProductData {
   goods_id?: string;
   goods_name?: string;
-  image_url?: string;
-  top_gallery_url?: string;
+  image?: {
+    id?: number;
+    url?: string; // THIS IS THE CORRECT IMAGE FIELD!
+  };
+  image_url?: string; // Fallback
+  top_gallery_url?: string; // Fallback
   link_url?: string; // Contains goods_id in URL params
   price_info?: {
     price?: number; // Price in cents!
@@ -75,11 +79,30 @@ function convertToProduct(item: TemuProductItem): Product | null {
   const priceCents = tProduct.price_info?.price || 0;
   const priceEuros = priceCents / 100;
   
-  // Use top_gallery_url (high quality) or image_url
-  const imageUrl = tProduct.top_gallery_url || tProduct.image_url || '';
+  // Extract image URL (primary field is data.image.url)
+  const imageUrl = tProduct.image?.url || tProduct.top_gallery_url || tProduct.image_url || '';
+  
+  // Debug logging before validation
+  console.log(`🔍 [TEMU] Converting item:`, {
+    goodsId: goodsId || 'MISSING',
+    goodsName: goodsName.substring(0, 30),
+    priceCents,
+    priceEuros,
+    imageUrl: imageUrl ? imageUrl.substring(0, 50) + '...' : 'MISSING',
+    imageSource: tProduct.image?.url ? 'image.url' : tProduct.top_gallery_url ? 'top_gallery_url' : tProduct.image_url ? 'image_url' : 'none',
+  });
   
   // Validate minimum required fields
-  if (!goodsId || priceEuros <= 0 || !imageUrl) {
+  if (!goodsId) {
+    console.log(`⚠️ [TEMU] Rejected: missing goods_id`);
+    return null;
+  }
+  if (priceEuros <= 0) {
+    console.log(`⚠️ [TEMU] Rejected: invalid price ${priceEuros}`);
+    return null;
+  }
+  if (!imageUrl) {
+    console.log(`⚠️ [TEMU] Rejected: missing image`);
     return null;
   }
   
