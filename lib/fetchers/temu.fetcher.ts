@@ -108,6 +108,11 @@ function convertToProduct(item: TemuProductItem): Product | null {
     return null;
   }
   
+  // Build correct store URL (API gives us relative path with all tracking params)
+  const storeUrl = tProduct.link_url 
+    ? `https://www.temu.com/pt/${tProduct.link_url}`
+    : `https://www.temu.com/pt/goods-${goodsId}.html`;
+  
   return {
     id: `temu-${goodsId}`,
     name: goodsName,
@@ -117,7 +122,7 @@ function convertToProduct(item: TemuProductItem): Product | null {
     currency: 'EUR',
     imageUrl: imageUrl,
     store: 'Temu',
-    storeUrl: `https://www.temu.com/pt/goods-${goodsId}.html`,
+    storeUrl: storeUrl,
     description: goodsName,
     source: 'temu',
     difficulty: priceEuros < 10 ? 'easy' : priceEuros < 30 ? 'medium' : 'hard',
