@@ -43,7 +43,7 @@ function mapToCategory(productName: string): ProductCategory {
   const name = productName.toLowerCase();
   
   if (name.includes('phone') || name.includes('tablet') || name.includes('electronic')) {
-    return 'Eletrónica';
+    return 'Eletrónicos';
   }
   if (name.includes('shirt') || name.includes('dress') || name.includes('clothes') || name.includes('fashion')) {
     return 'Moda';
@@ -51,11 +51,11 @@ function mapToCategory(productName: string): ProductCategory {
   if (name.includes('toy') || name.includes('game') || name.includes('doll')) {
     return 'Brinquedos';
   }
-  if (name.includes('book') || name.includes('pen') || name.includes('notebook')) {
-    return 'Papelaria';
+  if (name.includes('book')) {
+    return 'Livros';
   }
   if (name.includes('home') || name.includes('kitchen') || name.includes('decor')) {
-    return 'Casa';
+    return 'Casa & Jardim';
   }
   
   return 'Outros';
