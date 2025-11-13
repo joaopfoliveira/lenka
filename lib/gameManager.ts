@@ -30,6 +30,34 @@ export type Lobby = {
   createdAt: number;
 };
 
+export type LobbySummary = {
+  code: string;
+  status: Lobby['status'];
+  hostId: string;
+  roundsTotal: number;
+  currentRoundIndex: number;
+  createdAt: number;
+  readyPlayersCount: number;
+  guessesCount: number;
+  currentProductName: string | null;
+  currentProductPrice: number | null;
+  players: Array<{
+    id: string;
+    name: string;
+    isHost: boolean;
+    score: number;
+  }>;
+};
+
+export type GameStats = {
+  totals: {
+    totalLobbies: number;
+    totalPlayers: number;
+    statusCounts: Record<Lobby['status'], number>;
+  };
+  lobbies: LobbySummary[];
+};
+
 class GameManager {
   private lobbies: Map<string, Lobby> = new Map();
 
@@ -439,6 +467,53 @@ class GameManager {
     return null;
   }
 
+  getStats(): GameStats {
+    const lobbiesArray = Array.from(this.lobbies.values());
+
+    const lobbySummaries: LobbySummary[] = lobbiesArray.map(lobby => ({
+      code: lobby.code,
+      status: lobby.status,
+      hostId: lobby.hostId,
+      roundsTotal: lobby.roundsTotal,
+      currentRoundIndex: lobby.currentRoundIndex,
+      createdAt: lobby.createdAt,
+      readyPlayersCount: Object.keys(lobby.readyPlayers).length,
+      guessesCount: Object.keys(lobby.guesses).length,
+      currentProductName: lobby.currentProduct?.name ?? null,
+      currentProductPrice: lobby.currentProduct?.price ?? null,
+      players: lobby.players.map(player => ({
+        id: player.id,
+        name: player.name,
+        isHost: player.isHost,
+        score: player.score
+      }))
+    }));
+
+    const totals = lobbySummaries.reduce(
+      (acc, lobby) => {
+        acc.totalLobbies += 1;
+        acc.totalPlayers += lobby.players.length;
+        acc.statusCounts[lobby.status] = (acc.statusCounts[lobby.status] || 0) + 1;
+        return acc;
+      },
+      {
+        totalLobbies: 0,
+        totalPlayers: 0,
+        statusCounts: {
+          waiting: 0,
+          playing: 0,
+          finished: 0,
+          loading: 0
+        } as Record<Lobby['status'], number>
+      }
+    );
+
+    return {
+      totals,
+      lobbies: lobbySummaries
+    };
+  }
+
   // Clean up old lobbies (called periodically)
   cleanupOldLobbies(): void {
     const oneHourAgo = Date.now() - (60 * 60 * 1000);
@@ -458,4 +533,3 @@ export const gameManager = new GameManager();
 setInterval(() => {
   gameManager.cleanupOldLobbies();
 }, 10 * 60 * 1000);
-

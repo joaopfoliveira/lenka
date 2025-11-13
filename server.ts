@@ -3,6 +3,7 @@ import { parse } from 'url';
 import next from 'next';
 import { Server } from 'socket.io';
 import { gameManager } from './lib/gameManager';
+import { getPrometheusMetrics, metricsContentType } from './lib/promMetrics';
 
 // Allow self-signed certificates in development (for KuantoKusta API)
 if (process.env.NODE_ENV !== 'production') {
@@ -39,6 +40,15 @@ function clearAllTimers(lobbyCode: string) {
 app.prepare().then(() => {
   const httpServer = createServer(async (req, res) => {
     try {
+      if (req.url?.startsWith('/metrics')) {
+        const metrics = await getPrometheusMetrics();
+        res.statusCode = 200;
+        res.setHeader('Content-Type', metricsContentType);
+        res.setHeader('Cache-Control', 'no-store');
+        res.end(metrics);
+        return;
+      }
+
       const parsedUrl = parse(req.url!, true);
       await handle(req, res, parsedUrl);
     } catch (err) {
@@ -473,4 +483,3 @@ app.prepare().then(() => {
       console.log(`> Ready on http://${hostname}:${port}`);
     });
 });
-
