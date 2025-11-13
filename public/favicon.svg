@@ -1,17 +1,17 @@
-<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-  <!-- Fundo transparente -->
-  <rect width="32" height="32" fill="transparent"/>
-  
-  <!-- Etiqueta simplificada para favicon -->
-  <rect x="6" y="10" width="20" height="14" rx="2" fill="#E2B22C" stroke="#FF3B1F" stroke-width="1.5"/>
-  
-  <!-- Buraco da etiqueta -->
-  <circle cx="4" cy="17" r="2" fill="none" stroke="#FF3B1F" stroke-width="1.2"/>
-  
-  <!-- Linha/fio -->
-  <path d="M 4 17 C 2 12, 4 8, 10 9" fill="none" stroke="#FF3B1F" stroke-width="1.2" stroke-linecap="round"/>
-  
-  <!-- Letra L -->
-  <text x="16" y="23" font-family="Georgia, serif" font-size="14" font-weight="bold" fill="#FF3B1F" text-anchor="middle">L</text>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="panel" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E3CE0" />
+      <stop offset="45%" stop-color="#0B1B6B" />
+      <stop offset="100%" stop-color="#020418" />
+    </linearGradient>
+    <linearGradient id="border" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FFECA8" />
+      <stop offset="50%" stop-color="#F5C349" />
+      <stop offset="100%" stop-color="#FFECA8" />
+    </linearGradient>
+  </defs>
+  <rect x="4" y="12" width="56" height="40" rx="12" fill="url(#panel)" stroke="url(#border)" stroke-width="3" />
+  <text x="32" y="40" font-family="'Bungee', 'Luckiest Guy', sans-serif" font-size="24" letter-spacing="2" font-weight="900" fill="#FFE8B5" stroke="#FF6F3E" stroke-width="1.5" paint-order="stroke" text-anchor="middle">L</text>
 </svg>
-

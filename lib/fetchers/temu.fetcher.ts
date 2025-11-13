@@ -62,6 +62,30 @@ function mapToCategory(productName: string): ProductCategory {
 }
 
 /**
+ * Temu titles often include long descriptors (sizes, bundles, marketing copy).
+ * This trims each name down to a friendlier, game-show style label.
+ */
+function simplifyName(name: string): string {
+  const trimmed = name.replace(/\s+/g, ' ').trim();
+  if (trimmed.length <= 45) {
+    return trimmed;
+  }
+
+  const separators = [' | ', ' - ', '–', '•', ':', ','];
+  for (const separator of separators) {
+    if (trimmed.includes(separator)) {
+      const candidate = trimmed.split(separator)[0].trim();
+      if (candidate.length >= 12 && candidate.length <= 45) {
+        return candidate;
+      }
+    }
+  }
+
+  const words = trimmed.split(' ');
+  return words.slice(0, 8).join(' ');
+}
+
+/**
  * Convert Temu product to our Product format
  */
 function convertToProduct(item: TemuProductItem): Product | null {
@@ -76,6 +100,7 @@ function convertToProduct(item: TemuProductItem): Product | null {
   
   // Extract product name (title is the correct field!)
   const goodsName = tProduct.title || tProduct.goods_name || 'Produto Temu';
+  const conciseName = simplifyName(goodsName);
   
   // Price is in CENTS! Divide by 100 to get euros
   const priceCents = tProduct.price_info?.price || 0;
@@ -115,7 +140,7 @@ function convertToProduct(item: TemuProductItem): Product | null {
   
   return {
     id: `temu-${goodsId}`,
-    name: goodsName,
+    name: conciseName,
     brand: tProduct.mall_name || 'Temu',
     category: mapToCategory(goodsName),
     price: priceEuros,
@@ -208,4 +233,3 @@ export async function fetchRandomTemuProducts(count: number = 10): Promise<Produ
     return [];
   }
 }
-

@@ -1,7 +1,18 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, type ReactNode } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  Clock3,
+  Copy,
+  DoorOpen,
+  Loader2,
+  RadioTower,
+  Sparkles,
+  Trophy,
+  Users,
+} from 'lucide-react';
 import {
   connectSocket,
   disconnectSocket,
@@ -28,6 +39,158 @@ import {
 import { Lobby, Player } from '@/lib/gameManager';
 import { Product } from '@/data/products';
 import ProductImage from '@/app/components/ProductImage';
+import { useSfx } from '@/app/components/sfx/SfxProvider';
+
+const wheelSegments = [
+  '5€',
+  '10€',
+  '15€',
+  '25€',
+  '35€',
+  '50€',
+  '75€',
+  '100€',
+  '150€',
+  '200€',
+  '250€',
+  '500€',
+];
+
+const wheelColors = [
+  '#FF6FD8',
+  '#FFE066',
+  '#5EEAD4',
+  '#A78BFA',
+  '#FB923C',
+  '#60A5FA',
+];
+
+const wheelGradient = wheelSegments
+  .map((_, index) => {
+    const start = (index / wheelSegments.length) * 360;
+    const end = ((index + 1) / wheelSegments.length) * 360;
+    const color = wheelColors[index % wheelColors.length];
+    return `${color} ${start}deg ${end}deg`;
+  })
+  .join(', ');
+
+const showtimeQuips = [
+  (total?: number) =>
+    `Polishing ${total ?? 'a few'} secret showcase${total && total > 1 ? 's' : ''}...`,
+  () => 'Cue the confetti! Producers are lining up the next prize.',
+  () => 'Backstage crew is whispering prices to the big wheel...',
+  () => 'Cranking the neon lights and unlocking the prize vault...',
+];
+
+function getShowtimeMessage(total?: number) {
+  const pick = showtimeQuips[Math.floor(Math.random() * showtimeQuips.length)];
+  return pick(total);
+}
+
+function StageBackground({
+  children,
+  maxWidth = 'max-w-5xl',
+}: {
+  children: ReactNode;
+  maxWidth?: string;
+}) {
+  return (
+    <div className="relative min-h-screen overflow-hidden bg-lenka-stage px-3 py-6 text-white sm:px-6">
+      <div className="pointer-events-none absolute inset-0 opacity-80">
+        <motion.div
+          className="absolute -right-10 top-12 h-72 w-72 rounded-full bg-gradient-to-br from-lenka-gold/30 to-transparent blur-[120px]"
+          animate={{ rotate: 360 }}
+          transition={{ repeat: Infinity, duration: 45, ease: 'linear' }}
+        />
+        <motion.div
+          className="absolute -left-16 bottom-6 h-80 w-80 rounded-full bg-gradient-to-tr from-lenka-pink/25 to-transparent blur-[120px]"
+          animate={{ rotate: -360 }}
+          transition={{ repeat: Infinity, duration: 55, ease: 'linear' }}
+        />
+      </div>
+      <div className={`relative z-10 mx-auto ${maxWidth}`}>{children}</div>
+    </div>
+  );
+}
+
+function WheelOverlay({
+  visible,
+  prize,
+  spinId,
+  targetAngle,
+  message,
+  onComplete,
+}: {
+  visible: boolean;
+  prize: string;
+  spinId: number;
+  targetAngle: number;
+  message: string;
+  onComplete: () => void;
+}) {
+  return (
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 px-4 py-8 backdrop-blur"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <motion.div
+            className="flex flex-col items-center gap-6 rounded-3xl border border-white/10 bg-white/5 px-6 py-8 shadow-lenka-card backdrop-blur-xl"
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+          >
+            <div className="relative flex items-center justify-center">
+              <div className="absolute -top-10 left-1/2 h-16 w-10 -translate-x-1/2 rounded-b-full bg-gradient-to-b from-white to-lenka-gold shadow-lg" />
+              <motion.div
+                key={spinId}
+                className="relative h-[320px] w-[320px] rounded-full border-4 border-white/50 p-4 shadow-lenka-glow sm:h-[420px] sm:w-[420px]"
+                style={{
+                  backgroundImage: `conic-gradient(${wheelGradient})`,
+                }}
+                initial={{ rotate: 0 }}
+                animate={{ rotate: targetAngle }}
+                transition={{ duration: 4.6, ease: [0.12, 0.67, 0.22, 0.99] }}
+                onAnimationComplete={onComplete}
+              >
+                {wheelSegments.map((label, index) => {
+                  const angle = (360 / wheelSegments.length) * index;
+                  return (
+                    <div
+                      key={`${label}-${index}`}
+                      className="absolute left-1/2 top-1/2 origin-top text-xs font-black uppercase tracking-widest text-white"
+                      style={{
+                        transform: `rotate(${angle}deg) translate(-50%, -82%)`,
+                      }}
+                    >
+                      <span className="drop-shadow-lg">{label}</span>
+                    </div>
+                  );
+                })}
+                <div className="absolute inset-6 rounded-full border-4 border-white/10 bg-lenka-midnight/70 backdrop-blur" />
+                <div className="absolute inset-[32%] flex flex-col items-center justify-center rounded-full border border-white/20 bg-white/90 text-center text-lenka-midnight shadow-inner">
+                  <p className="text-xs uppercase tracking-[0.4em] text-lenka-midnight/60">
+                    Wheel Prize
+                  </p>
+                  <p className="text-3xl font-black text-lenka-midnight">{prize}</p>
+                </div>
+              </motion.div>
+            </div>
+            <div className="text-center">
+              <p className="text-xs uppercase tracking-[0.4em] text-white/60">
+                Wheel of Lenka
+              </p>
+              <p className="text-lg font-semibold text-white">{message}</p>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
 
 export default function LobbyPage() {
   const params = useParams();
@@ -53,10 +216,92 @@ export default function LobbyPage() {
   const [isReady, setIsReady] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [isWheelVisible, setIsWheelVisible] = useState(false);
+  const [wheelSpinId, setWheelSpinId] = useState(0);
+  const [wheelTargetAngle, setWheelTargetAngle] = useState(0);
+  const [wheelPrize, setWheelPrize] = useState('50€');
+  const [wheelMessage, setWheelMessage] = useState('Spinning the big wheel...');
+  const [pendingLoadingState, setPendingLoadingState] = useState<{
+    message: string;
+    total: number;
+  } | null>(null);
+  const [pendingRoundPayload, setPendingRoundPayload] = useState<{
+    product: Product;
+    roundIndex: number;
+    totalRounds: number;
+  } | null>(null);
   
   const mountedRef = useRef(false);
   const activeTimeouts = useRef<NodeJS.Timeout[]>([]); // Track all active timeouts
   const cleanupFunctionsRef = useRef<(() => void)[]>([]); // Track cleanup functions
+  const wheelTimestampRef = useRef<number | null>(null);
+  const prevTimeLeftRef = useRef(timeLeft);
+  const wheelVisibleRef = useRef(isWheelVisible);
+  const previousLobbyStatusRef = useRef<Lobby['status'] | null>(null);
+  const { playTick, playDing, playBuzzer, playFanfare, playApplause } = useSfx();
+
+  useEffect(() => {
+    wheelVisibleRef.current = isWheelVisible;
+  }, [isWheelVisible]);
+
+  const revealProduct = (payload: {
+    product: Product;
+    roundIndex: number;
+    totalRounds: number;
+  }) => {
+    setCurrentProduct(null);
+    setIsLoadingProducts(false);
+    setLoadingMessage('');
+    setIsStarting(false);
+    setCurrentProduct(payload.product);
+    setRoundIndex(payload.roundIndex);
+    setTotalRounds(payload.totalRounds);
+    setTimeLeft(15);
+    setGuess('');
+    setHasSubmitted(false);
+    setShowResults(false);
+    setRoundResults(null);
+    setFinalLeaderboard(null);
+  };
+
+  const startWheelSpin = (message?: string) => {
+    const totalSegments = wheelSegments.length;
+    const fullSpins = Math.floor(Math.random() * 3) + 3;
+    const selectedIndex = Math.floor(Math.random() * totalSegments);
+    const anglePerSegment = 360 / totalSegments;
+    const randomOffset = Math.random() * (anglePerSegment - 6);
+    const target =
+      fullSpins * 360 + selectedIndex * anglePerSegment + randomOffset;
+
+    setWheelTargetAngle(target);
+    setWheelPrize(wheelSegments[selectedIndex]);
+    setWheelMessage(message ?? 'Showtime!');
+    setWheelSpinId((prev) => prev + 1);
+    setIsWheelVisible(true);
+    wheelTimestampRef.current = Date.now();
+  };
+
+  const handleWheelComplete = () => {
+    playFanfare();
+    setIsWheelVisible(false);
+
+    if (pendingRoundPayload) {
+      revealProduct(pendingRoundPayload);
+      setPendingRoundPayload(null);
+      setPendingLoadingState(null);
+      return;
+    }
+
+    if (pendingLoadingState) {
+      setIsLoadingProducts(true);
+      setLoadingMessage(pendingLoadingState.message);
+      setTotalRounds(pendingLoadingState.total);
+      setPendingLoadingState(null);
+    } else {
+      setIsLoadingProducts(true);
+      setLoadingMessage('Lining up the first item...');
+    }
+  };
 
   // Helper to add and track timeouts
   const addTimeout = (callback: () => void, delay: number) => {
@@ -94,11 +339,12 @@ export default function LobbyPage() {
     // Set up event listeners FIRST before connecting
     const unsubLobbyState = onLobbyState((lobbyData) => {
       console.log('Received lobby state:', lobbyData);
-      
+
       // CRITICAL: If status changed to 'waiting', clear ALL game-related state
-      if (lobbyData.status === 'waiting' && lobby && lobby.status !== 'waiting') {
+      const previousStatus = previousLobbyStatusRef.current;
+      if (lobbyData.status === 'waiting' && previousStatus && previousStatus !== 'waiting') {
         console.log('🔄 Lobby reset detected - clearing all game state');
-        
+
         // Clear all state (listeners remain active for next game)
         setCurrentProduct(null);
         setRoundIndex(0);
@@ -115,14 +361,18 @@ export default function LobbyPage() {
         setIsLoadingProducts(false);
         setLoadingMessage('');
         setIsResetting(false);
+        setPendingRoundPayload(null);
+        setPendingLoadingState(null);
+        setIsWheelVisible(false);
       }
-      
+
       setLobby(lobbyData);
       const socket = getSocket();
       const player = lobbyData.players.find((p: Player) => p.id === socket.id);
       if (player) {
         setCurrentPlayer(player);
       }
+      previousLobbyStatusRef.current = lobbyData.status;
       
       // Update URL if we just created
       if (code === '__create__') {
@@ -149,26 +399,27 @@ export default function LobbyPage() {
 
     const unsubGameLoading = onGameLoading(({ message, totalRounds: total }) => {
       console.log('⏳ Loading products:', message);
-      setIsLoadingProducts(true);
-      setLoadingMessage(message);
-      setTotalRounds(total);
-      setIsStarting(false); // Clear starting flag
+      const funMessage = getShowtimeMessage(total);
+      setIsStarting(false);
+      setPendingLoadingState({ message: funMessage, total });
+      setWheelMessage(funMessage);
+      setIsLoadingProducts(false);
+
+      if (!wheelVisibleRef.current) {
+        startWheelSpin(funMessage);
+      }
     });
 
     const unsubGameStarted = onGameStarted(({ product, roundIndex: rIndex, totalRounds: total }) => {
       console.log('🎮 Game started! Product:', product.name);
-      setIsLoadingProducts(false); // Clear loading state
-      setLoadingMessage('');
-      setIsStarting(false); // Reset the starting flag
-      setCurrentProduct(product);
-      setRoundIndex(rIndex);
-      setTotalRounds(total);
-      setTimeLeft(15);
-      setGuess('');
-      setHasSubmitted(false);
-      setShowResults(false);
-      setRoundResults(null);
-      setFinalLeaderboard(null);
+      const payload = { product, roundIndex: rIndex, totalRounds: total };
+      setIsStarting(false);
+      setPendingLoadingState(null);
+      if (wheelVisibleRef.current) {
+        setPendingRoundPayload(payload);
+      } else {
+        revealProduct(payload);
+      }
     });
 
     const unsubRoundUpdate = onRoundUpdate(({ timeLeft: time }) => {
@@ -283,6 +534,39 @@ export default function LobbyPage() {
     };
   }, [code, router]);
 
+  useEffect(() => {
+    if (!currentProduct) {
+      prevTimeLeftRef.current = timeLeft;
+      return;
+    }
+
+    if (timeLeft < prevTimeLeftRef.current) {
+      playTick();
+      if (timeLeft === 0) {
+        playBuzzer();
+      }
+    }
+    prevTimeLeftRef.current = timeLeft;
+  }, [currentProduct, playBuzzer, playTick, timeLeft]);
+
+  useEffect(() => {
+    if (showResults && roundResults) {
+      playFanfare();
+    }
+  }, [playFanfare, roundResults, showResults]);
+
+  useEffect(() => {
+    if (lobby?.status === 'finished' && finalLeaderboard) {
+      playApplause();
+    }
+  }, [finalLeaderboard, lobby?.status, playApplause]);
+
+  useEffect(() => {
+    if (readyTimeout === 0) {
+      playBuzzer();
+    }
+  }, [playBuzzer, readyTimeout]);
+
   const handleStartGame = async () => {
     console.log('🎮 Start Game clicked. Lobby:', lobby, 'isStarting:', isStarting);
     
@@ -298,8 +582,12 @@ export default function LobbyPage() {
     }
 
     setIsStarting(true);
-    setIsLoadingProducts(true);
-    setLoadingMessage('A buscar produtos da API do KuantoKusta...');
+    setIsLoadingProducts(false);
+    setLoadingMessage('');
+    setPendingLoadingState(null);
+    setPendingRoundPayload(null);
+    startWheelSpin('Spinning the Wheel of Lenka...');
+    playDing();
 
     // Use server-side API fetch (works!)
     console.log('🛒 [SERVER] Starting game with server-side API fetch...');
@@ -317,6 +605,7 @@ export default function LobbyPage() {
 
     submitGuess(lobby.code, value);
     setHasSubmitted(true);
+    playDing();
   };
 
   const handlePlayAgain = () => {
@@ -330,6 +619,7 @@ export default function LobbyPage() {
     
     try {
       resetGame(lobby.code);
+      playDing();
       // Reset flag after a delay to prevent spam
       addTimeout(() => setIsResetting(false), 1000);
     } catch (error) {
@@ -341,6 +631,7 @@ export default function LobbyPage() {
   const handleMarkReady = () => {
     if (lobby && !isReady) {
       setIsReady(true);
+      playDing();
       
       // If it's the last round, skip to final results immediately
       const isLastRound = roundIndex + 1 === totalRounds;
@@ -377,6 +668,7 @@ export default function LobbyPage() {
     
     console.log('👋 Leaving lobby');
     setIsLeaving(true);
+    playBuzzer();
     
     try {
       leaveLobby(lobby.code);
@@ -394,490 +686,590 @@ export default function LobbyPage() {
   const copyLobbyCode = () => {
     if (lobby) {
       navigator.clipboard.writeText(lobby.code);
+      playDing();
     }
   };
 
+  const wheelOverlay = (
+    <WheelOverlay
+      visible={isWheelVisible}
+      prize={wheelPrize}
+      spinId={wheelSpinId}
+      targetAngle={wheelTargetAngle}
+      message={wheelMessage}
+      onComplete={handleWheelComplete}
+    />
+  );
+
   if (!lobby) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 text-center">
+      <StageBackground maxWidth="max-w-3xl">
+        {wheelOverlay}
+        <div className="rounded-3xl border border-white/15 bg-white/10 p-10 text-center shadow-lenka-card backdrop-blur">
           {error ? (
-            <div>
-              <p className="text-xl text-red-600 mb-4">{error}</p>
+            <div className="space-y-4">
+              <p className="text-2xl font-bold text-red-200">{error}</p>
               <button
                 onClick={() => router.push('/')}
-                className="bg-lenka-red hover:bg-lenka-red/90 text-white font-semibold py-2 px-6 rounded-lg transition duration-200"
+                className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-gradient-to-r from-lenka-electric to-lenka-pink px-6 py-3 text-lg font-semibold text-white shadow-lenka-glow"
               >
-                Go Home
+                Return Home
               </button>
             </div>
           ) : (
-            <div>
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-              <p className="text-xl text-gray-600">Connecting to lobby...</p>
+            <div className="flex flex-col items-center gap-4">
+              <Loader2 className="h-12 w-12 animate-spin text-lenka-gold" />
+              <p className="text-xl font-semibold text-white">
+                Connecting to your lobby...
+              </p>
+              <p className="text-sm uppercase tracking-[0.4em] text-white/70">
+                Negotiating with Lenka HQ
+              </p>
             </div>
           )}
         </div>
-      </div>
+      </StageBackground>
     );
   }
 
   // Loading products screen
   if (isLoadingProducts) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-2xl text-center">
-          <div className="mb-6">
-            <div className="animate-spin rounded-full h-16 w-16 border-4 border-purple-500 border-t-transparent mx-auto mb-4"></div>
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">Preparing Game...</h1>
-            <p className="text-lg text-gray-600 mb-4">{loadingMessage}</p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-gray-700">
-              <p className="mb-2">🔍 Searching KuantoKusta.pt for {totalRounds} random products</p>
-              <p className="text-xs text-gray-500">This ensures fresh, real-time prices!</p>
-            </div>
+      <StageBackground maxWidth="max-w-4xl">
+        {wheelOverlay}
+        <div className="rounded-3xl border border-white/15 bg-white/5 p-8 text-center shadow-lenka-card backdrop-blur">
+          <div className="mb-8 flex flex-col items-center gap-4">
+            <RadioTower className="h-16 w-16 text-lenka-gold drop-shadow-[0_0_25px_rgba(255,215,111,0.6)]" />
+            <h1 className="text-4xl font-extrabold text-white">Preparing Your Show</h1>
+            <p className="text-lg text-white/80">{loadingMessage}</p>
           </div>
-          <div className="flex justify-center gap-2">
-            <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-            <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-            <div className="w-3 h-3 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-left">
+            <p className="text-sm uppercase tracking-[0.4em] text-white/60">
+              KuantoKusta Search
+            </p>
+            <p className="mt-2 text-2xl font-bold text-lenka-gold">
+              {totalRounds} surprise product(s)
+            </p>
+            <p className="text-sm text-white/80">
+              Fresh data, real-time prices, and plenty of drama.
+            </p>
+          </div>
+          <div className="mt-8 flex justify-center gap-2">
+            {[0, 150, 300].map((delay) => (
+              <span
+                key={delay}
+                className="h-3 w-3 rounded-full bg-lenka-gold animate-bounce"
+                style={{ animationDelay: `${delay}ms` }}
+              />
+            ))}
           </div>
         </div>
-      </div>
+      </StageBackground>
     );
   }
 
   // Playing - Show results (check FIRST before waiting/finished screens)
   if (showResults && roundResults) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 p-2 sm:p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-8 w-full max-w-4xl relative">
-          <button
-            onClick={handleLeaveLobby}
-            disabled={isLeaving}
-            className={`absolute bottom-2 right-2 sm:bottom-4 sm:right-4 text-white text-xs sm:text-sm font-semibold px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg transition duration-200 shadow-md z-10 ${
-              isLeaving ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600'
-            }`}
-          >
-            {isLeaving ? '...' : 'Leave'}
-          </button>
-          
-          <div className="text-center mb-4 sm:mb-6">
-            <h1 className="text-xl sm:text-3xl font-bold text-green-600 mb-2 sm:mb-3">Round {roundIndex + 1} Results</h1>
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-500 rounded-xl p-3 sm:p-4 inline-block">
-              <p className="text-xs sm:text-sm text-gray-600 mb-1">Real Price</p>
-              <p className="text-3xl sm:text-5xl font-bold text-green-600 mb-2">
-                €{roundResults.realPrice.toFixed(2)}
-              </p>
-              {roundResults.productUrl && (
-                <a
-                  href={roundResults.productUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-white hover:bg-gray-50 border-2 border-green-500 text-green-700 font-semibold rounded-lg text-xs sm:text-sm transition-colors"
+      <StageBackground maxWidth="max-w-5xl">
+        {wheelOverlay}
+        <div className="space-y-6">
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lenka-card backdrop-blur">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.4em] text-white/60">
+                  Round {roundIndex + 1} of {totalRounds}
+                </p>
+                <h1 className="text-3xl font-bold text-lenka-gold">
+                  Showdown Results
+                </h1>
+                <p className="text-sm text-white/70">
+                  The closest guess earns the spotlight and the bonus.
+                </p>
+              </div>
+              <button
+                onClick={handleLeaveLobby}
+                disabled={isLeaving}
+                className={`inline-flex items-center gap-2 rounded-full border px-5 py-2 text-sm font-semibold ${
+                  isLeaving
+                    ? 'cursor-not-allowed border-white/20 text-white/40'
+                    : 'border-white/30 text-white hover:bg-white/10'
+                }`}
+              >
+                <DoorOpen className="h-4 w-4" />
+                {isLeaving ? 'Leaving...' : 'Leave Show'}
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-6 md:grid-cols-2">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-inner">
+                <p className="text-xs uppercase tracking-[0.4em] text-white/60">
+                  Real Price
+                </p>
+                <p className="mt-3 text-4xl font-black text-lenka-gold">
+                  €{roundResults.realPrice.toFixed(2)}
+                </p>
+                {roundResults.productStore && (
+                  <p className="text-sm text-white/70">
+                    From {roundResults.productStore}
+                  </p>
+                )}
+                {roundResults.productUrl && (
+                  <a
+                    href={roundResults.productUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-4 inline-flex items-center gap-2 rounded-full border border-lenka-gold/40 px-4 py-2 text-sm font-semibold text-lenka-gold transition hover:bg-lenka-gold/10"
+                  >
+                    View product
+                    <Sparkles className="h-4 w-4" />
+                  </a>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                <p className="text-xs uppercase tracking-[0.4em] text-white/60">
+                  Current Standings
+                </p>
+                <div className="mt-3 space-y-2">
+                  {roundResults.leaderboard.map((player: any, index: number) => (
+                    <div
+                      key={player.playerId}
+                      className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white"
+                    >
+                      <span className="font-semibold">
+                        {index === 0 && '🥇 '}
+                        {index === 1 && '🥈 '}
+                        {index === 2 && '🥉 '}
+                        {player.playerName}
+                      </span>
+                      <span className="font-bold text-lenka-gold">
+                        {player.totalScore} pts
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-lenka-card backdrop-blur">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-white/80">
+                <thead>
+                  <tr className="text-left text-xs uppercase tracking-[0.3em] text-white/50">
+                    <th className="px-3 py-2">Player</th>
+                    <th className="px-3 py-2 text-right">Guess</th>
+                    <th className="px-3 py-2 text-right">Δ %</th>
+                    <th className="px-3 py-2 text-right">Base</th>
+                    <th className="px-3 py-2 text-right">Bonus</th>
+                    <th className="px-3 py-2 text-right">Round</th>
+                    <th className="px-3 py-2 text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {roundResults.results.map((result: any, index: number) => (
+                    <tr
+                      key={result.playerId}
+                      className={`border-t border-white/10 ${
+                        index === 0 ? 'bg-white/5' : ''
+                      }`}
+                    >
+                      <td className="px-3 py-3 font-semibold text-white">
+                        {result.playerName}
+                      </td>
+                      <td className="px-3 py-3 text-right">
+                        {result.guess !== null ? `€${result.guess.toFixed(2)}` : '-'}
+                      </td>
+                      <td className="px-3 py-3 text-right">
+                        {result.guess !== null
+                          ? `${(result.errorPercentage * 100).toFixed(1)}%`
+                          : '-'}
+                      </td>
+                      <td className="px-3 py-3 text-right text-teal-300 font-semibold">
+                        {result.baseScore}
+                      </td>
+                      <td className="px-3 py-3 text-right text-lenka-pink font-semibold">
+                        {result.bonus}
+                      </td>
+                      <td className="px-3 py-3 text-right text-lenka-gold font-bold">
+                        {result.pointsEarned}
+                      </td>
+                      <td className="px-3 py-3 text-right font-semibold text-white">
+                        {result.totalScore}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-center text-xs uppercase tracking-[0.3em] text-white/60">
+              Base score + podium bonus = round points
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-lenka-card backdrop-blur">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.4em] text-white/60">
+                  Ready Check
+                </p>
+                <p className="text-2xl font-bold text-white">
+                  {Object.keys(lobby.readyPlayers || {}).length} / {lobby.players.length} ready
+                </p>
+                <p className="text-xs uppercase tracking-[0.3em] text-white/50">
+                  Auto-start in {Math.floor(readyTimeout / 60)}:{String(readyTimeout % 60).padStart(2, '0')}
+                </p>
+              </div>
+              {!isReady ? (
+                <button
+                  onClick={handleMarkReady}
+                  className="inline-flex items-center gap-2 rounded-full border border-lenka-teal/60 bg-lenka-teal/20 px-6 py-3 text-sm font-semibold text-white shadow-lenka-card transition hover:bg-lenka-teal/30"
                 >
-                  <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                  Ver em {roundResults.productStore}
-                </a>
+                  <Sparkles className="h-4 w-4" />
+                  {roundIndex + 1 === totalRounds
+                    ? 'Reveal Final Results'
+                    : 'Ready for Next Round'}
+                </button>
+              ) : (
+                <div className="rounded-full border border-lenka-teal px-6 py-3 text-sm font-semibold text-lenka-teal">
+                  Waiting for others...
+                </div>
               )}
             </div>
-          </div>
-
-          <div className="mb-4 sm:mb-6 overflow-x-auto">
-            <table className="w-full text-xs sm:text-sm">
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="px-1 sm:px-3 py-2 text-left font-semibold text-gray-700">Player</th>
-                  <th className="px-1 sm:px-3 py-2 text-right font-semibold text-gray-700">Guess</th>
-                  <th className="px-1 sm:px-3 py-2 text-right font-semibold text-gray-700">Error</th>
-                  <th className="px-1 sm:px-3 py-2 text-right font-semibold text-gray-700">Base</th>
-                  <th className="px-1 sm:px-3 py-2 text-right font-semibold text-gray-700">Bonus</th>
-                  <th className="px-1 sm:px-3 py-2 text-right font-semibold text-gray-700">Round</th>
-                  <th className="px-1 sm:px-3 py-2 text-right font-semibold text-gray-700">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {roundResults.results.map((result: any, index: number) => (
-                  <tr key={result.playerId} className={`border-b ${index < 3 ? 'bg-yellow-50' : ''}`}>
-                    <td className="px-1 sm:px-3 py-2 font-medium text-gray-800">
-                      {index === 0 && result.bonus > 0 && '🥇 '}
-                      {index === 1 && result.bonus > 0 && '🥈 '}
-                      {index === 2 && result.bonus > 0 && '🥉 '}
-                      {result.playerName}
-                    </td>
-                    <td className="px-1 sm:px-3 py-2 text-right text-gray-700">
-                      {result.guess !== null ? `€${result.guess.toFixed(2)}` : '-'}
-                    </td>
-                    <td className="px-1 sm:px-3 py-2 text-right text-gray-700">
-                      {result.guess !== null ? `${(result.errorPercentage * 100).toFixed(1)}%` : '-'}
-                    </td>
-                    <td className="px-1 sm:px-3 py-2 text-right text-blue-600 font-medium">
-                      {result.baseScore}
-                    </td>
-                    <td className="px-1 sm:px-3 py-2 text-right text-purple-600 font-medium">
-                      {result.bonus > 0 ? `+${result.bonus}` : '-'}
-                    </td>
-                    <td className="px-1 sm:px-3 py-2 text-right font-bold text-green-600">
-                      {result.roundScore}
-                    </td>
-                    <td className="px-1 sm:px-3 py-2 text-right font-bold text-lenka-red">
-                      {result.totalScore}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="mt-2 text-xs text-gray-500 text-center">
-              Base (0-1000) + Bonus (1st: +150, 2nd: +80, 3rd: +40) = Round Score
-            </div>
-          </div>
-
-          <div className="bg-lenka-cream rounded-lg p-3 sm:p-4 border-2 border-lenka-mustard/20">
-            <h3 className="font-semibold text-gray-700 mb-2 text-sm sm:text-base">Current Standings</h3>
-            <div className="space-y-1">
-              {roundResults.leaderboard.map((player: any, index: number) => (
-                <div key={player.playerId} className="flex justify-between text-sm sm:text-base">
-                  <span className="text-gray-800">
-                    {index + 1}. {player.playerName}
-                  </span>
-                  <span className="font-bold text-lenka-red">{player.totalScore} pts</span>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {lobby.players.map((player) => (
+                <div
+                  key={player.id}
+                  className={`rounded-full px-4 py-1 text-xs font-semibold ${
+                    lobby.readyPlayers?.[player.id]
+                      ? 'bg-lenka-teal/30 text-lenka-teal'
+                      : 'bg-white/10 text-white/70'
+                  }`}
+                >
+                  {player.name} {lobby.readyPlayers?.[player.id] && '✓'}
                 </div>
               ))}
             </div>
           </div>
-
-          {/* Ready System */}
-          <div className="mt-4 sm:mt-6 space-y-3">
-            {/* Ready Button */}
-            <div className="flex justify-center">
-              {!isReady ? (
-                <button
-                  onClick={handleMarkReady}
-                  className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg transition duration-200 text-base sm:text-lg shadow-lg"
-                >
-                  {roundIndex + 1 === totalRounds ? '🏁 Check Final Results' : '✓ Ready for Next Round'}
-                </button>
-              ) : (
-                <div className="bg-green-100 border-2 border-green-500 text-green-700 font-bold py-3 px-8 rounded-lg text-center text-base sm:text-lg">
-                  {roundIndex + 1 === totalRounds ? '🏁 Going to Results...' : '✓ You are ready!'}
-                </div>
-              )}
-            </div>
-
-            {/* Ready Status */}
-            <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm sm:text-base text-gray-700 font-medium">
-                  Ready Players: {lobby?.readyPlayers ? Object.keys(lobby.readyPlayers).length : 0} / {lobby?.players.length || 0}
-                </span>
-                <span className="text-xs sm:text-sm text-gray-600">
-                  Auto-start: {Math.floor(readyTimeout / 60)}:{String(readyTimeout % 60).padStart(2, '0')}
-                </span>
-              </div>
-              
-              {/* Player Pills */}
-              <div className="flex flex-wrap gap-1.5">
-                {lobby?.players.map((player) => (
-                  <div
-                    key={player.id}
-                    className={`px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm transition-colors ${
-                      lobby.readyPlayers?.[player.id]
-                        ? 'bg-green-500 text-white'
-                        : 'bg-gray-200 text-gray-700'
-                    }`}
-                  >
-                    {player.name} {lobby.readyPlayers?.[player.id] && '✓'}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
         </div>
-      </div>
+      </StageBackground>
     );
   }
 
   // Game finished screen (CHECK BEFORE currentProduct to prevent showing guess screen)
   if (lobby.status === 'finished' && finalLeaderboard) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 p-2 sm:p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-8 w-full max-w-2xl">
-          <div className="text-center mb-4 sm:mb-6">
-            <h1 className="text-2xl sm:text-4xl font-bold text-lenka-red mb-1 sm:mb-2">Game Over!</h1>
-            <p className="text-gray-600 text-sm sm:text-base">Final Results</p>
+      <StageBackground maxWidth="max-w-4xl">
+        {wheelOverlay}
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center shadow-lenka-card backdrop-blur">
+          <div className="flex flex-col items-center gap-3">
+            <Trophy className="h-16 w-16 text-lenka-gold drop-shadow-[0_0_25px_rgba(255,215,111,0.6)]" />
+            <h1 className="text-4xl font-extrabold text-white">Lenka Grand Finale</h1>
+            <p className="text-sm uppercase tracking-[0.4em] text-white/60">
+              Thanks for playing!
+            </p>
           </div>
 
-          <div className="mb-4 sm:mb-6">
-            <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4 text-gray-700">Leaderboard</h2>
-            <div className="space-y-1.5 sm:space-y-2">
-              {finalLeaderboard.map((player: any, index: number) => (
-                <div
-                  key={player.playerId}
-                  className={`flex items-center justify-between p-3 sm:p-4 rounded-lg ${
-                    index === 0
-                      ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-white'
-                      : index === 1
-                      ? 'bg-gradient-to-r from-gray-300 to-gray-400 text-gray-800'
-                      : index === 2
-                      ? 'bg-gradient-to-r from-orange-300 to-orange-400 text-gray-800'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <span className="text-lg sm:text-2xl font-bold">#{index + 1}</span>
-                    <span className="font-semibold text-sm sm:text-base">{player.playerName}</span>
-                  </div>
-                  <span className="text-base sm:text-xl font-bold">{player.totalScore} pts</span>
+          <div className="mt-6 space-y-3 text-left">
+            {finalLeaderboard.map((player: any, index: number) => (
+              <div
+                key={player.playerId}
+                className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-white ${
+                  index === 0
+                    ? 'border-lenka-gold bg-gradient-to-r from-lenka-gold/40 to-transparent'
+                    : index === 1
+                    ? 'border-white/20 bg-white/10'
+                    : 'border-white/10 bg-white/5'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl font-black">#{index + 1}</span>
+                  <span className="text-lg font-semibold">{player.playerName}</span>
                 </div>
-              ))}
-            </div>
+                <span className="text-lg font-bold text-lenka-gold">{player.totalScore} pts</span>
+              </div>
+            ))}
           </div>
 
-          {currentPlayer?.isHost && (
+          <div className="mt-8 space-y-3">
+            {currentPlayer?.isHost && (
+              <button
+                onClick={handlePlayAgain}
+                disabled={isResetting || isLeaving}
+                className={`w-full rounded-full border px-6 py-3 text-sm font-semibold ${
+                  isResetting || isLeaving
+                    ? 'cursor-not-allowed border-white/20 text-white/40'
+                    : 'border-lenka-gold text-white hover:bg-lenka-gold/10'
+                }`}
+              >
+                {isResetting ? 'Resetting...' : 'Play Another Show'}
+              </button>
+            )}
             <button
-              onClick={handlePlayAgain}
-              disabled={isResetting || isLeaving}
-              className={`w-full font-semibold py-2.5 sm:py-3 px-6 rounded-lg transition duration-200 mb-2 text-sm sm:text-base ${
-                isResetting || isLeaving
-                  ? 'bg-gray-400 cursor-not-allowed text-gray-600'
-                  : 'bg-lenka-red hover:bg-red-700 text-white'
+              onClick={handleLeaveLobby}
+              disabled={isLeaving || isResetting}
+              className={`w-full rounded-full border px-6 py-3 text-sm font-semibold ${
+                isLeaving || isResetting
+                  ? 'cursor-not-allowed border-white/20 text-white/40'
+                  : 'border-white/30 text-white hover:bg-white/10'
               }`}
             >
-              {isResetting ? 'Resetting...' : 'Play Again'}
+              {isLeaving ? 'Leaving...' : 'Exit to Lobby'}
             </button>
-          )}
-
-          <button
-            onClick={handleLeaveLobby}
-            disabled={isLeaving || isResetting}
-            className={`w-full font-semibold py-2.5 sm:py-3 px-6 rounded-lg transition duration-200 text-sm sm:text-base ${
-              isLeaving || isResetting
-                ? 'bg-gray-400 cursor-not-allowed text-gray-600'
-                : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
-            }`}
-          >
-            {isLeaving ? 'Leaving...' : 'Leave Lobby'}
-          </button>
+          </div>
         </div>
-      </div>
+      </StageBackground>
     );
   }
 
   // Playing - Guessing phase
   if (currentProduct) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 p-2 sm:p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-8 w-full max-w-2xl relative">
-          <button
-            onClick={handleLeaveLobby}
-            disabled={isLeaving}
-            className={`absolute bottom-2 right-2 sm:bottom-4 sm:right-4 text-white text-xs sm:text-sm font-semibold px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg transition duration-200 shadow-md z-10 ${
-              isLeaving ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600'
-            }`}
-          >
-            {isLeaving ? '...' : 'Leave'}
-          </button>
-          
-          <div className="text-center mb-3 sm:mb-6">
-            <div className="flex items-center justify-center gap-2 sm:gap-4 mb-1 sm:mb-2">
-              <h1 className="text-xl sm:text-3xl font-bold text-lenka-red">
-                Round {roundIndex + 1} / {totalRounds}
-              </h1>
-              <div className={`text-xl sm:text-3xl font-bold ${timeLeft <= 5 ? 'text-red-600' : 'text-gray-700'}`}>
-                {timeLeft}s
+      <StageBackground maxWidth="max-w-5xl">
+        {wheelOverlay}
+        <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lenka-card backdrop-blur">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.4em] text-white/60">
+                  Round {roundIndex + 1} / {totalRounds}
+                </p>
+                <h2 className="text-3xl font-bold text-white">Guess that price!</h2>
+              </div>
+              <div className={`flex items-center gap-3 rounded-2xl border px-4 py-2 ${
+                timeLeft <= 5 ? 'border-lenka-pink text-lenka-pink' : 'border-white/20 text-white'
+              }`}>
+                <Clock3 className="h-5 w-5" />
+                <span className="text-2xl font-black">{timeLeft}s</span>
               </div>
             </div>
-            {error && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-3 py-1.5 sm:px-4 sm:py-2 rounded text-xs sm:text-sm">
-                {error}
-              </div>
-            )}
-          </div>
 
-          {/* Product Section - Compact and well-separated */}
-          <div className="mb-6 sm:mb-8">
-            {/* Product Image Container - Strict dimensions */}
-            <div className="w-full flex justify-center mb-5 sm:mb-7">
-              <div className="bg-gray-100 rounded-lg p-3 sm:p-4 shadow-sm overflow-hidden">
-                <div className="w-[140px] h-[140px] sm:w-[180px] sm:h-[180px] flex items-center justify-center">
-                  <ProductImage
-                    src={currentProduct.imageUrl}
-                    alt={currentProduct.name}
-                    width={140}
-                    height={140}
-                    className="max-w-[140px] max-h-[140px] sm:max-w-[180px] sm:max-h-[180px]"
+            <div className="mt-6 grid gap-6 md:grid-cols-[1fr,0.9fr]">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                <p className="text-xs uppercase tracking-[0.4em] text-white/60">Product</p>
+                <h3 className="mt-2 text-2xl font-bold text-white">{currentProduct.name}</h3>
+                {currentProduct.store && (
+                  <p className="text-sm font-semibold text-white/80">
+                    Store: {currentProduct.store}
+                  </p>
+                )}
+                {currentProduct.description && (
+                  <p className="text-xs text-white/60">{currentProduct.description}</p>
+                )}
+              </div>
+              <div className="flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 p-2">
+                <ProductImage
+                  src={currentProduct.imageUrl}
+                  alt={currentProduct.name}
+                  width={240}
+                  height={240}
+                  className="rounded-2xl bg-white/10 p-2"
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 space-y-4">
+              {error && (
+                <div className="rounded-2xl border border-lenka-pink/50 bg-lenka-pink/10 px-4 py-3 text-sm font-semibold text-lenka-pink">
+                  {error}
+                </div>
+              )}
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <div className="flex-1 rounded-2xl border border-white/15 bg-white/5 px-4 py-3">
+                  <label className="text-xs uppercase tracking-[0.4em] text-white/50">Your Guess (€)</label>
+                  <input
+                    type="number"
+                    value={guess}
+                    onChange={(e) => setGuess(e.target.value)}
+                    placeholder="0.00"
+                    step="0.01"
+                    min="0"
+                    disabled={hasSubmitted}
+                    className="w-full bg-transparent text-4xl font-black text-white placeholder:text-white/20 focus:outline-none"
                   />
                 </div>
-              </div>
-            </div>
-            
-            {/* Product Info - Below image with clear gap */}
-            <div className="w-full text-center px-4 sm:px-6">
-              <h2 className="text-xs sm:text-lg md:text-xl font-bold text-gray-800 mb-1 sm:mb-2 break-words leading-tight max-w-full overflow-hidden">
-                {currentProduct.name}
-              </h2>
-              {currentProduct.brand && (
-                <p className="text-lenka-mustard font-bold mb-1 text-xs sm:text-sm md:text-base">
-                  {currentProduct.brand}
-                </p>
-              )}
-              <p className="text-gray-600 text-xs sm:text-sm">
-                Store: <span className="font-semibold">{currentProduct.store}</span>
-              </p>
-            </div>
-          </div>
-
-          <div className="mb-4 sm:mb-6">
-            <label className="block text-gray-700 font-medium mb-1.5 sm:mb-2 text-sm sm:text-base">Your Guess (€)</label>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                value={guess}
-                onChange={(e) => setGuess(e.target.value)}
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-                disabled={hasSubmitted}
-                className="flex-1 px-3 py-2 sm:px-4 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100 text-base sm:text-lg"
-              />
-              <button
-                onClick={handleSubmitGuess}
-                disabled={hasSubmitted || !guess}
-                className="bg-lenka-red hover:bg-lenka-red/90 disabled:bg-gray-400 text-white font-semibold px-4 py-2 sm:px-6 sm:py-3 rounded-lg transition duration-200 border-2 border-lenka-red disabled:border-gray-400 text-sm sm:text-base"
-              >
-                {hasSubmitted ? 'Sent' : 'Submit'}
-              </button>
-            </div>
-          </div>
-
-          {hasSubmitted && (
-            <div className="bg-green-100 border-2 border-green-400 text-green-700 px-3 py-2 sm:px-4 sm:py-3 rounded text-center text-xs sm:text-base">
-              Guess submitted! Waiting for other players...
-            </div>
-          )}
-
-          <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t">
-            <h3 className="font-semibold text-gray-700 mb-1.5 sm:mb-2 text-sm sm:text-base">Players</h3>
-            <div className="flex flex-wrap gap-1.5 sm:gap-2">
-              {lobby.players.map((player) => (
-                <div
-                  key={player.id}
-                  className={`px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm ${
-                    lobby.guesses[player.id] !== undefined
-                      ? 'bg-lenka-red text-white'
-                      : 'bg-gray-200 text-gray-700'
+                <button
+                  onClick={handleSubmitGuess}
+                  disabled={hasSubmitted || !guess}
+                  className={`rounded-2xl px-8 py-4 text-lg font-bold text-white shadow-lenka-card transition ${
+                    hasSubmitted || !guess
+                      ? 'cursor-not-allowed bg-white/10 text-white/30'
+                      : 'bg-gradient-to-r from-lenka-gold to-lenka-pink hover:scale-[1.01]'
                   }`}
                 >
-                  {player.name}
-                </div>
-              ))}
+                  {hasSubmitted ? 'Submitted' : 'Lock Guess'}
+                </button>
+              </div>
+              {hasSubmitted && (
+                <p className="text-center text-sm uppercase tracking-[0.3em] text-lenka-teal">
+                  Guess sent! Waiting for the others...
+                </p>
+              )}
             </div>
           </div>
 
-          {/* Current Leaderboard - shown during game */}
-          {roundIndex > 0 && (
-            <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t">
-              <h3 className="font-semibold text-gray-700 mb-2 text-sm sm:text-base flex items-center gap-2">
-                <span>🏆</span>
-                <span>Current Standings</span>
-              </h3>
-              <div className="bg-lenka-cream rounded-lg p-3 border-2 border-lenka-mustard/20">
-                <div className="space-y-1">
-                  {[...lobby.players]
-                    .sort((a, b) => b.score - a.score)
-                    .map((player, index) => (
-                      <div key={player.id} className="flex justify-between items-center text-xs sm:text-sm">
-                        <span className="text-gray-800 font-medium">
-                          {index === 0 && '🥇 '}
-                          {index === 1 && '🥈 '}
-                          {index === 2 && '🥉 '}
-                          {index + 1}. {player.name}
-                        </span>
-                        <span className="font-bold text-lenka-red">{player.score} pts</span>
-                      </div>
-                    ))}
-                </div>
+          <div className="space-y-6">
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-lenka-card backdrop-blur">
+              <div className="flex items-center justify-between">
+                <p className="text-xs uppercase tracking-[0.4em] text-white/60">Contestants</p>
+                <span className="text-xs text-white/60">Submissions update live</span>
+              </div>
+              <div className="mt-3 space-y-2">
+                {lobby.players.map((player) => (
+                  <div
+                    key={player.id}
+                    className={`flex items-center justify-between rounded-2xl border px-3 py-2 text-sm font-semibold ${
+                      lobby.guesses[player.id] !== undefined
+                        ? 'border-lenka-teal/70 bg-lenka-teal/20 text-lenka-teal'
+                        : 'border-white/15 bg-white/5 text-white/70'
+                    }`}
+                  >
+                    <span>{player.name}</span>
+                    {lobby.guesses[player.id] !== undefined && <span>✓</span>}
+                  </div>
+                ))}
               </div>
             </div>
-          )}
+
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-lenka-card backdrop-blur">
+              <p className="text-xs uppercase tracking-[0.4em] text-white/60">Leaderboard</p>
+              <div className="mt-3 space-y-2">
+                {[...lobby.players]
+                  .sort((a, b) => b.score - a.score)
+                  .map((player, index) => (
+                    <div
+                      key={player.id}
+                      className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white"
+                    >
+                      <span>
+                        {index === 0 && '🥇 '}
+                        {index === 1 && '🥈 '}
+                        {index === 2 && '🥉 '}
+                        {player.name}
+                      </span>
+                      <span className="font-bold text-lenka-gold">{player.score} pts</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            <button
+              onClick={handleLeaveLobby}
+              disabled={isLeaving}
+              className={`w-full rounded-full border px-6 py-3 text-sm font-semibold ${
+                isLeaving ? 'cursor-not-allowed border-white/20 text-white/40' : 'border-white/30 text-white hover:bg-white/10'
+              }`}
+            >
+              {isLeaving ? 'Leaving...' : 'Leave Show'}
+            </button>
+          </div>
         </div>
-      </div>
+      </StageBackground>
     );
   }
 
   // Waiting screen (default)
   if (lobby.status === 'waiting') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 p-2 sm:p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-8 w-full max-w-2xl">
-          <div className="text-center mb-4 sm:mb-6">
-            <h1 className="text-2xl sm:text-4xl font-bold text-lenka-red mb-1 sm:mb-2">Lenka</h1>
-            <div className="flex items-center justify-center gap-2 mb-2 sm:mb-4">
-              <p className="text-xl sm:text-2xl font-mono font-bold text-gray-800">{lobby.code}</p>
+      <StageBackground maxWidth="max-w-5xl">
+        {wheelOverlay}
+        <div className="grid gap-6 lg:grid-cols-[1.1fr,0.9fr]">
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lenka-card backdrop-blur">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.4em] text-white/60">Lobby Code</p>
+                <div className="mt-1 inline-flex items-center gap-3 rounded-2xl border border-white/20 bg-white/5 px-4 py-2 font-mono text-3xl font-black tracking-[0.3em]">
+                  {lobby.code}
+                  <button
+                    onClick={copyLobbyCode}
+                    className="text-sm font-semibold text-lenka-gold hover:text-white"
+                  >
+                    <Copy className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-center">
+                <p className="text-xs uppercase tracking-[0.4em] text-white/60">Rounds</p>
+                <p className="text-2xl font-black text-white">{lobby.roundsTotal}</p>
+              </div>
+            </div>
+
+            <p className="mt-4 text-sm text-white/70">Invite your friends, set the vibe, and get ready to spin.</p>
+
+            {error && (
+              <div className="mt-4 rounded-2xl border border-lenka-pink/50 bg-lenka-pink/10 px-4 py-3 text-sm font-semibold text-lenka-pink">
+                {error}
+              </div>
+            )}
+
+            <div className="mt-6 space-y-3">
+              {currentPlayer?.isHost ? (
+                <button
+                  onClick={handleStartGame}
+                  disabled={lobby.players.length < 1 || isStarting}
+                  className={`w-full rounded-2xl px-6 py-4 text-lg font-bold text-white shadow-lenka-card transition ${
+                    lobby.players.length < 1 || isStarting
+                      ? 'cursor-not-allowed bg-white/10 text-white/30'
+                      : 'bg-gradient-to-r from-lenka-gold to-lenka-pink hover:scale-[1.01]'
+                  }`}
+                >
+                  {isStarting ? 'Calling the wheel...' : 'Start The Show'}
+                </button>
+              ) : (
+                <div className="rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-center text-sm text-white/70">
+                  Waiting for the host to spin the wheel...
+                </div>
+              )}
+
               <button
-                onClick={copyLobbyCode}
-                className="text-lenka-red hover:text-lenka-red/80 text-xs sm:text-sm underline"
+                onClick={handleLeaveLobby}
+                disabled={isLeaving}
+                className={`w-full rounded-2xl border px-6 py-3 text-sm font-semibold ${
+                  isLeaving ? 'cursor-not-allowed border-white/20 text-white/40' : 'border-white/30 text-white hover:bg-white/10'
+                }`}
               >
-                Copy
+                {isLeaving ? 'Leaving...' : 'Leave Lobby'}
               </button>
             </div>
-            <p className="text-gray-600 text-sm sm:text-base">Rounds: {lobby.roundsTotal}</p>
           </div>
 
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-3 py-2 sm:px-4 sm:py-3 rounded mb-4 text-sm">
-              {error}
+          <div className="space-y-4">
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-lenka-card backdrop-blur">
+              <div className="flex items-center justify-between">
+                <p className="text-xs uppercase tracking-[0.4em] text-white/60">Contestants ({lobby.players.length})</p>
+                <Users className="h-5 w-5 text-lenka-gold" />
+              </div>
+              <div className="mt-3 space-y-2">
+                {lobby.players.map((player) => (
+                  <div
+                    key={player.id}
+                    className={`flex items-center justify-between rounded-2xl border px-4 py-2 text-sm font-semibold ${
+                      player.isHost
+                        ? 'border-lenka-gold/60 bg-lenka-gold/10 text-lenka-gold'
+                        : 'border-white/15 bg-white/5 text-white'
+                    }`}
+                  >
+                    <span>{player.name}</span>
+                    {player.isHost && <span className="text-xs uppercase tracking-[0.4em]">Host</span>}
+                  </div>
+                ))}
+              </div>
             </div>
-          )}
 
-          <div className="mb-4 sm:mb-6">
-            <h2 className="text-lg sm:text-xl font-semibold mb-2 sm:mb-3 text-gray-700">Players ({lobby.players.length})</h2>
-            <div className="space-y-1.5 sm:space-y-2">
-              {lobby.players.map((player) => (
-                <div
-                  key={player.id}
-                  className="flex items-center justify-between bg-gray-50 rounded-lg p-2.5 sm:p-3"
-                >
-                  <span className="font-medium text-gray-800 text-sm sm:text-base">{player.name}</span>
-                  {player.isHost && (
-                    <span className="bg-lenka-mustard text-lenka-dark text-xs px-2 py-1 rounded font-bold">HOST</span>
-                  )}
-                </div>
-              ))}
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-lenka-card backdrop-blur">
+              <p className="text-xs uppercase tracking-[0.4em] text-white/60">Showtime Pro Tips</p>
+              <ul className="mt-3 space-y-2 text-sm text-white/70">
+                <li>• Wheel decides when the show starts. Buckle up!</li>
+                <li>• Bonus points reward the boldest guesses.</li>
+                <li>• Hover buttons for a tick—Lenka hears you.</li>
+              </ul>
             </div>
           </div>
-
-          {currentPlayer?.isHost ? (
-            <button
-              onClick={handleStartGame}
-              disabled={lobby.players.length < 1 || isStarting}
-              className="w-full bg-lenka-red hover:bg-lenka-red/90 disabled:bg-gray-400 text-white font-semibold py-2.5 sm:py-3 px-6 rounded-lg transition duration-200 mb-2 border-2 border-lenka-red disabled:border-gray-400 text-sm sm:text-base"
-            >
-              {isStarting ? 'Starting...' : 'Start Game'}
-            </button>
-          ) : (
-            <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-3 py-2.5 sm:px-4 sm:py-3 rounded text-center text-sm sm:text-base">
-              Waiting for host to start...
-            </div>
-          )}
-
-          <button
-            onClick={handleLeaveLobby}
-            disabled={isLeaving}
-            className={`w-full font-semibold py-2.5 sm:py-3 px-6 rounded-lg transition duration-200 mt-2 text-sm sm:text-base ${
-              isLeaving
-                ? 'bg-gray-400 cursor-not-allowed text-gray-600'
-                : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
-            }`}
-          >
-            {isLeaving ? 'Leaving...' : 'Leave Lobby'}
-          </button>
         </div>
-      </div>
+      </StageBackground>
     );
   }
 
   return null;
 }
-

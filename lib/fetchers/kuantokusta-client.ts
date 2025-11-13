@@ -139,7 +139,7 @@ function convertToProduct(kProduct: any): Product {
     imageUrl: imageUrl || '', // Empty string instead of placeholder
     store: 'KuantoKusta',
     storeUrl: kProduct.storeUrl || 'https://www.kuantokusta.pt',
-    description: `${kProduct.brand} ${kProduct.name}`,
+    description: kProduct.fullName || `${kProduct.brand ?? ''} ${kProduct.name}`.trim(),
     source: 'kuantokusta',
     difficulty: price < 50 ? 'easy' : price < 200 ? 'medium' : 'hard',
     updatedAt: new Date().toISOString(),
@@ -260,4 +260,3 @@ export async function fetchRandomKuantoKustaProductsFromBrowser(
     throw error;
   }
 }
-
