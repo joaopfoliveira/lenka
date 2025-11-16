@@ -1,6 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 import { Lobby } from './gameManager';
-import { Product } from '@/data/products';
+import { Product } from './productTypes';
 
 let socket: Socket | null = null;
 
@@ -73,14 +73,19 @@ export function removeAllGameListeners() {
 }
 
 // Event emitters
-export function createLobby(roundsTotal: number, playerName: string, productSource: 'kuantokusta' | 'temu' | 'mixed' = 'mixed') {
+export function createLobby(
+  roundsTotal: number,
+  playerName: string,
+  productSource: 'kuantokusta' | 'temu' | 'mixed' = 'mixed',
+  clientId: string
+) {
   const socket = getSocket();
-  socket.emit('lobby:create', { roundsTotal, playerName, productSource });
+  socket.emit('lobby:create', { roundsTotal, playerName, productSource, clientId });
 }
 
-export function joinLobby(code: string, playerName: string) {
+export function joinLobby(code: string, playerName: string, clientId: string) {
   const socket = getSocket();
-  socket.emit('lobby:join', { code, playerName });
+  socket.emit('lobby:join', { code, playerName, clientId });
 }
 
 export function leaveLobby(code: string) {
@@ -194,4 +199,3 @@ export function onError(callback: (data: { message: string }) => void) {
   socket.on('error', callback);
   return () => socket.off('error', callback);
 }
-

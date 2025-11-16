@@ -20,6 +20,8 @@ const handle = app.getRequestHandler();
 
 // Track active timers per lobby to clean them up when needed
 const activeTimers = new Map<string, NodeJS.Timeout[]>();
+const pendingDisconnects = new Map<string, NodeJS.Timeout>();
+const RECONNECT_GRACE_MS = 2 * 60 * 1000; // 2 minutes
 
 function addTimer(lobbyCode: string, timer: NodeJS.Timeout) {
   if (!activeTimers.has(lobbyCode)) {
@@ -35,6 +37,16 @@ function clearAllTimers(lobbyCode: string) {
     timers.forEach(timer => clearInterval(timer));
     activeTimers.delete(lobbyCode);
   }
+}
+
+function clearPendingDisconnect(clientId: string): boolean {
+  const pending = pendingDisconnects.get(clientId);
+  if (!pending) {
+    return false;
+  }
+  clearTimeout(pending);
+  pendingDisconnects.delete(clientId);
+  return true;
 }
 
 app.prepare().then(() => {
@@ -79,10 +91,10 @@ app.prepare().then(() => {
     socket.removeAllListeners('game:reset');
 
     // Create lobby
-    socket.on('lobby:create', ({ roundsTotal, playerName, productSource }) => {
+    socket.on('lobby:create', ({ roundsTotal, playerName, productSource, clientId }) => {
       console.log('📝 Creating lobby for player:', playerName, 'rounds:', roundsTotal, 'source:', productSource || 'mixed');
       try {
-        const lobby = gameManager.createLobby(roundsTotal, playerName, socket.id, productSource || 'mixed');
+        const lobby = gameManager.createLobby(roundsTotal, playerName, socket.id, productSource || 'mixed', clientId);
         socket.join(lobby.code);
         console.log('✅ Lobby created:', lobby.code);
         socket.emit('lobby:state', lobby);
@@ -94,10 +106,10 @@ app.prepare().then(() => {
     });
 
     // Join lobby
-    socket.on('lobby:join', ({ code, playerName }) => {
+    socket.on('lobby:join', ({ code, playerName, clientId }) => {
       console.log('📝 Join lobby request:', code, 'player:', playerName);
       try {
-        const result = gameManager.joinLobby(code, playerName, socket.id);
+        const result = gameManager.joinLobby(code, playerName, socket.id, clientId);
         
         if (!result) {
           console.log('❌ Lobby not found:', code);
@@ -107,6 +119,11 @@ app.prepare().then(() => {
 
         const { lobby, isReconnect, oldPlayerId } = result;
         socket.join(code);
+
+        const rejoinedPlayer = lobby.players.find(p => p.id === socket.id);
+        if (rejoinedPlayer && clearPendingDisconnect(rejoinedPlayer.clientId)) {
+          console.log(`🔃 Cleared disconnect timeout for ${rejoinedPlayer.name}`);
+        }
         
         if (isReconnect) {
           console.log(`🔄 Player reconnected: ${playerName} (new socket: ${socket.id})`);
@@ -129,6 +146,12 @@ app.prepare().then(() => {
     socket.on('lobby:leave', ({ code }) => {
       console.log(`👋 Player ${socket.id} leaving lobby ${code}`);
       try {
+        const currentLobby = gameManager.getLobbyState(code);
+        const leavingPlayer = currentLobby?.players.find(player => player.id === socket.id);
+        if (leavingPlayer) {
+          clearPendingDisconnect(leavingPlayer.clientId);
+        }
+
         const { lobby, shouldDelete, newHostId } = gameManager.leaveLobby(code, socket.id);
         
         if (shouldDelete) {
@@ -404,7 +427,10 @@ app.prepare().then(() => {
     // Submit guess
     socket.on('guess:submit', ({ code, value }) => {
       try {
-        gameManager.submitGuess(code, socket.id, value);
+        const lobby = gameManager.submitGuess(code, socket.id, value);
+        if (lobby) {
+          io.to(code).emit('lobby:state', lobby);
+        }
       } catch (error) {
         socket.emit('error', { message: 'Failed to submit guess' });
       }
@@ -449,30 +475,53 @@ app.prepare().then(() => {
     socket.on('disconnect', () => {
       console.log('❌ Client disconnected:', socket.id);
       
-      // Find which lobby this player was in and clean up
       const playerLobby = gameManager.findPlayerLobby(socket.id);
-      
-      if (playerLobby) {
-        const { code, lobby } = playerLobby;
-        console.log(`🧹 Auto-cleanup: removing ${socket.id} from lobby ${code}`);
-        
-        const { lobby: updatedLobby, shouldDelete, newHostId } = gameManager.leaveLobby(code, socket.id);
-        
+      if (!playerLobby) {
+        return;
+      }
+
+      const { code, lobby } = playerLobby;
+      const player = lobby.players.find(p => p.id === socket.id);
+      if (!player) {
+        return;
+      }
+
+      player.isConnected = false;
+      io.to(code).emit('lobby:state', lobby);
+
+      clearPendingDisconnect(player.clientId);
+
+      const disconnectedPlayerId = player.id;
+      console.log(`⏳ Player ${player.name} disconnected, waiting ${RECONNECT_GRACE_MS / 1000}s before removal`);
+      const timeout = setTimeout(() => {
+        console.log(`🧹 Removing ${player.name} from lobby ${code} after timeout`);
+        const { lobby: updatedLobby, shouldDelete, newHostId } = gameManager.leaveLobby(code, disconnectedPlayerId);
+        pendingDisconnects.delete(player.clientId);
+
         if (shouldDelete) {
           console.log(`🗑️ Lobby ${code} was deleted (no players left)`);
-          // Clean up all timers for this lobby
           clearAllTimers(code);
         } else if (updatedLobby) {
-          console.log(`📢 Broadcasting updated lobby after disconnect (${updatedLobby.players.length} players remaining)`);
+          console.log(`📢 Broadcasting updated lobby after disconnect timeout (${updatedLobby.players.length} players remaining)`);
           if (newHostId) {
             console.log(`👑 New host assigned: ${newHostId}`);
           }
-          // Notify remaining players
           io.to(code).emit('lobby:state', updatedLobby);
         }
-      }
+      }, RECONNECT_GRACE_MS);
+
+      pendingDisconnects.set(player.clientId, timeout);
     });
   });
+
+  setInterval(() => {
+    const expiredLobbies = gameManager.cleanupOldLobbies();
+    expiredLobbies.forEach(({ code, playerClientIds }) => {
+      console.log(`🧹 Auto-cleaning idle lobby ${code}`);
+      clearAllTimers(code);
+      playerClientIds.forEach(clearPendingDisconnect);
+    });
+  }, 10 * 60 * 1000);
 
   httpServer
     .once('error', (err) => {

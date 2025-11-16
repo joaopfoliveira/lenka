@@ -7,12 +7,15 @@ import {
   type PlayerGuess,
   type RoundResultEntry 
 } from './scoring';
+import { getRandomStageName } from './stageNames';
 
 export type Player = {
   id: string;
   name: string;
   isHost: boolean;
   score: number;
+  clientId: string;
+  isConnected: boolean;
 };
 
 export type Lobby = {
@@ -46,6 +49,8 @@ export type LobbySummary = {
     name: string;
     isHost: boolean;
     score: number;
+    clientId: string;
+    isConnected: boolean;
   }>;
 };
 
@@ -60,6 +65,29 @@ export type GameStats = {
 
 class GameManager {
   private lobbies: Map<string, Lobby> = new Map();
+  private readonly maxNameLength = 24;
+
+  private sanitizePlayerName(name?: string): string {
+    const trimmed = (name || '').trim();
+    if (!trimmed) {
+      return getRandomStageName();
+    }
+    return trimmed.slice(0, this.maxNameLength);
+  }
+
+  private generateUniqueName(lobby: Lobby, desiredName: string): string {
+    if (!lobby.players.some(player => player.name === desiredName)) {
+      return desiredName;
+    }
+
+    let counter = 2;
+    let candidate = `${desiredName} (${counter})`;
+    while (lobby.players.some(player => player.name === candidate)) {
+      counter++;
+      candidate = `${desiredName} (${counter})`;
+    }
+    return candidate;
+  }
 
   // Generate random lobby code
   private generateCode(): string {
@@ -72,16 +100,26 @@ class GameManager {
   }
 
   // Create new lobby
-  createLobby(roundsTotal: number, hostName: string, hostId: string, productSource: 'kuantokusta' | 'temu' | 'mixed' = 'mixed'): Lobby {
+  createLobby(
+    roundsTotal: number,
+    hostName: string,
+    hostId: string,
+    productSource: 'kuantokusta' | 'temu' | 'mixed' = 'mixed',
+    clientId?: string
+  ): Lobby {
     const code = this.generateCode();
+    const safeName = this.sanitizePlayerName(hostName);
+    const resolvedClientId = clientId || hostId;
     
     const lobby: Lobby = {
       code,
       players: [{
         id: hostId,
-        name: hostName,
+        name: safeName,
         isHost: true,
-        score: 0
+        score: 0,
+        clientId: resolvedClientId,
+        isConnected: true
       }],
       hostId,
       status: 'waiting',
@@ -98,12 +136,20 @@ class GameManager {
   }
 
   // Join existing lobby
-  joinLobby(code: string, playerName: string, playerId: string): { lobby: Lobby; isReconnect: boolean; oldPlayerId?: string } | null {
+  joinLobby(
+    code: string,
+    playerName: string,
+    playerId: string,
+    clientId?: string
+  ): { lobby: Lobby; isReconnect: boolean; oldPlayerId?: string } | null {
     const lobby = this.lobbies.get(code);
     
     if (!lobby) {
       return null;
     }
+    
+    const safeName = this.sanitizePlayerName(playerName);
+    let resolvedClientId = clientId || playerId;
 
     // Check if player with same socket ID already exists
     const existingPlayerById = lobby.players.find(p => p.id === playerId);
@@ -111,28 +157,35 @@ class GameManager {
       return { lobby, isReconnect: false };
     }
 
-    // Check if player with same NAME already exists (reconnection after refresh)
-    const existingPlayerByName = lobby.players.find(p => p.name === playerName);
-    if (existingPlayerByName) {
-      console.log(`🔄 Reconnection detected: "${playerName}" (old ID: ${existingPlayerByName.id}, new ID: ${playerId})`);
-      const oldPlayerId = existingPlayerByName.id;
+    // Check if player with same persistent ID already exists (reconnection after refresh)
+    const existingPlayerByClient = lobby.players.find(p => p.clientId === resolvedClientId);
+    if (existingPlayerByClient && !existingPlayerByClient.isConnected) {
+      console.log(`🔄 Reconnection detected: "${existingPlayerByClient.name}" (old ID: ${existingPlayerByClient.id}, new ID: ${playerId})`);
+      const oldPlayerId = existingPlayerByClient.id;
       
-      // Update the socket ID to the new one
-      existingPlayerByName.id = playerId;
+      existingPlayerByClient.id = playerId;
+      existingPlayerByClient.isConnected = true;
       
-      // If this was the host, update hostId
       if (lobby.hostId === oldPlayerId) {
         lobby.hostId = playerId;
       }
       
-      // Clear any pending guess from old socket ID
       if (lobby.guesses[oldPlayerId] !== undefined) {
         lobby.guesses[playerId] = lobby.guesses[oldPlayerId];
         delete lobby.guesses[oldPlayerId];
       }
+      if (lobby.readyPlayers[oldPlayerId]) {
+        lobby.readyPlayers[playerId] = true;
+        delete lobby.readyPlayers[oldPlayerId];
+      }
       
       return { lobby, isReconnect: true, oldPlayerId };
+    } else if (existingPlayerByClient) {
+      resolvedClientId = `${resolvedClientId}-${playerId}`;
+      console.log(`⚠️ Duplicate active client detected for ${existingPlayerByClient.name}. Issuing new session ID ${resolvedClientId}`);
     }
+
+    const finalPlayerName = this.generateUniqueName(lobby, safeName);
 
     // Can only join waiting lobbies (new players can't join mid-game)
     if (lobby.status !== 'waiting') {
@@ -142,9 +195,11 @@ class GameManager {
     // New player joining
     lobby.players.push({
       id: playerId,
-      name: playerName,
+      name: finalPlayerName,
       isHost: false,
-      score: 0
+      score: 0,
+      clientId: resolvedClientId,
+      isConnected: true
     });
 
     return { lobby, isReconnect: false };
@@ -160,6 +215,8 @@ class GameManager {
 
     // Remove player
     const wasHost = lobby.hostId === playerId;
+    delete lobby.guesses[playerId];
+    delete lobby.readyPlayers[playerId];
     lobby.players = lobby.players.filter(p => p.id !== playerId);
 
     // If no players left, mark for deletion
@@ -485,7 +542,9 @@ class GameManager {
         id: player.id,
         name: player.name,
         isHost: player.isHost,
-        score: player.score
+        score: player.score,
+        clientId: player.clientId,
+        isConnected: player.isConnected
       }))
     }));
 
@@ -515,21 +574,23 @@ class GameManager {
   }
 
   // Clean up old lobbies (called periodically)
-  cleanupOldLobbies(): void {
+  cleanupOldLobbies(): Array<{ code: string; playerClientIds: string[] }> {
     const oneHourAgo = Date.now() - (60 * 60 * 1000);
+    const expired: Array<{ code: string; playerClientIds: string[] }> = [];
     
     for (const [code, lobby] of this.lobbies.entries()) {
       if (lobby.createdAt < oneHourAgo) {
+        expired.push({
+          code,
+          playerClientIds: lobby.players.map(player => player.clientId),
+        });
         this.lobbies.delete(code);
       }
     }
+    
+    return expired;
   }
 }
 
 // Singleton instance
 export const gameManager = new GameManager();
-
-// Cleanup old lobbies every 10 minutes
-setInterval(() => {
-  gameManager.cleanupOldLobbies();
-}, 10 * 60 * 1000);

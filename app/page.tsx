@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import Logo from './components/Logo';
 import { useSfx } from './components/sfx/SfxProvider';
+import { ensurePlayerClientId, resolvePlayerName } from './utils/playerIdentity';
 
 export default function Home() {
   const router = useRouter();
@@ -30,34 +31,31 @@ export default function Home() {
 
   useEffect(() => {
     router.prefetch('/lobby/__create__');
+    ensurePlayerClientId();
   }, [router]);
 
   const handleCreateLobby = () => {
-    if (!playerName.trim()) {
-      setError('Please enter your name');
-      return;
-    }
-
-    localStorage.setItem('playerName', playerName);
+    setError('');
+    const { finalName } = resolvePlayerName(playerName, setPlayerName);
+    localStorage.setItem('playerName', finalName);
     localStorage.setItem('createLobby', 'true');
     localStorage.setItem('roundsTotal', roundsTotal.toString());
     localStorage.setItem('productSource', productSource);
+    ensurePlayerClientId();
     playDing();
     setIsLaunching(true);
     router.push('/lobby/__create__');
   };
 
   const handleJoinLobby = () => {
-    if (!playerName.trim()) {
-      setError('Please enter your name');
-      return;
-    }
+    const { finalName } = resolvePlayerName(playerName, setPlayerName);
     if (!lobbyCode.trim()) {
       setError('Please enter the lobby code');
       return;
     }
 
-    localStorage.setItem('playerName', playerName);
+    localStorage.setItem('playerName', finalName);
+    ensurePlayerClientId();
     playDing();
     router.push(`/lobby/${lobbyCode.toUpperCase()}`);
   };

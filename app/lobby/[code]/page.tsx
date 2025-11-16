@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useRef, type ReactNode } from 'react';
+import { useEffect, useState, useRef, useTransition, type ReactNode } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   Clock3,
   Copy,
@@ -40,6 +40,7 @@ import { Lobby, Player } from '@/lib/gameManager';
 import { Product } from '@/data/products';
 import ProductImage from '@/app/components/ProductImage';
 import { useSfx } from '@/app/components/sfx/SfxProvider';
+import { ensurePlayerClientId } from '@/app/utils/playerIdentity';
 
 const wheelSegments = [
   '5€',
@@ -90,23 +91,34 @@ function getShowtimeMessage(total?: number) {
 function StageBackground({
   children,
   maxWidth = 'max-w-5xl',
+  disableMotion = false,
 }: {
   children: ReactNode;
   maxWidth?: string;
+  disableMotion?: boolean;
 }) {
   return (
     <div className="relative min-h-screen overflow-hidden bg-lenka-stage px-3 py-6 text-white sm:px-6">
       <div className="pointer-events-none absolute inset-0 opacity-80">
-        <motion.div
-          className="absolute -right-10 top-12 h-72 w-72 rounded-full bg-gradient-to-br from-lenka-gold/30 to-transparent blur-[120px]"
-          animate={{ rotate: 360 }}
-          transition={{ repeat: Infinity, duration: 45, ease: 'linear' }}
-        />
-        <motion.div
-          className="absolute -left-16 bottom-6 h-80 w-80 rounded-full bg-gradient-to-tr from-lenka-pink/25 to-transparent blur-[120px]"
-          animate={{ rotate: -360 }}
-          transition={{ repeat: Infinity, duration: 55, ease: 'linear' }}
-        />
+        {disableMotion ? (
+          <>
+            <div className="absolute -right-10 top-12 h-72 w-72 rounded-full bg-gradient-to-br from-lenka-gold/25 to-transparent blur-[120px]" />
+            <div className="absolute -left-16 bottom-6 h-80 w-80 rounded-full bg-gradient-to-tr from-lenka-pink/20 to-transparent blur-[120px]" />
+          </>
+        ) : (
+          <>
+            <motion.div
+              className="absolute -right-10 top-12 h-72 w-72 rounded-full bg-gradient-to-br from-lenka-gold/30 to-transparent blur-[120px]"
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 45, ease: 'linear' }}
+            />
+            <motion.div
+              className="absolute -left-16 bottom-6 h-80 w-80 rounded-full bg-gradient-to-tr from-lenka-pink/25 to-transparent blur-[120px]"
+              animate={{ rotate: -360 }}
+              transition={{ repeat: Infinity, duration: 55, ease: 'linear' }}
+            />
+          </>
+        )}
       </div>
       <div className={`relative z-10 mx-auto ${maxWidth}`}>{children}</div>
     </div>
@@ -120,6 +132,7 @@ function WheelOverlay({
   targetAngle,
   message,
   onComplete,
+  reduceMotion = false,
 }: {
   visible: boolean;
   prize: string;
@@ -127,7 +140,16 @@ function WheelOverlay({
   targetAngle: number;
   message: string;
   onComplete: () => void;
+  reduceMotion?: boolean;
 }) {
+  useEffect(() => {
+    if (!reduceMotion || !visible) return;
+    const fallbackTimer = setTimeout(() => {
+      onComplete();
+    }, 800);
+    return () => clearTimeout(fallbackTimer);
+  }, [reduceMotion, visible, onComplete]);
+  
   return (
     <AnimatePresence>
       {visible && (
@@ -143,42 +165,53 @@ function WheelOverlay({
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
           >
-            <div className="relative flex items-center justify-center">
-              <div className="absolute -top-10 left-1/2 h-16 w-10 -translate-x-1/2 rounded-b-full bg-gradient-to-b from-white to-lenka-gold shadow-lg" />
-              <motion.div
-                key={spinId}
-                className="relative h-[320px] w-[320px] rounded-full border-4 border-white/50 p-4 shadow-lenka-glow sm:h-[420px] sm:w-[420px]"
-                style={{
-                  backgroundImage: `conic-gradient(${wheelGradient})`,
-                }}
-                initial={{ rotate: 0 }}
-                animate={{ rotate: targetAngle }}
-                transition={{ duration: 4.6, ease: [0.12, 0.67, 0.22, 0.99] }}
-                onAnimationComplete={onComplete}
-              >
-                {wheelSegments.map((label, index) => {
-                  const angle = (360 / wheelSegments.length) * index;
-                  return (
-                    <div
-                      key={`${label}-${index}`}
-                      className="absolute left-1/2 top-1/2 origin-top text-xs font-black uppercase tracking-widest text-white"
-                      style={{
-                        transform: `rotate(${angle}deg) translate(-50%, -82%)`,
-                      }}
-                    >
-                      <span className="drop-shadow-lg">{label}</span>
-                    </div>
-                  );
-                })}
-                <div className="absolute inset-6 rounded-full border-4 border-white/10 bg-lenka-midnight/70 backdrop-blur" />
-                <div className="absolute inset-[32%] flex flex-col items-center justify-center rounded-full border border-white/20 bg-white/90 text-center text-lenka-midnight shadow-inner">
-                  <p className="text-xs uppercase tracking-[0.4em] text-lenka-midnight/60">
-                    Wheel Prize
-                  </p>
-                  <p className="text-3xl font-black text-lenka-midnight">{prize}</p>
+            {reduceMotion ? (
+              <div className="flex flex-col items-center gap-4">
+                <div className="flex h-20 w-20 items-center justify-center rounded-full border border-white/20 bg-white/10">
+                  <Sparkles className="h-10 w-10 text-lenka-gold" />
                 </div>
-              </motion.div>
-            </div>
+                <p className="text-base font-semibold text-white">
+                  {message || 'Preparing next product...'}
+                </p>
+              </div>
+            ) : (
+              <div className="relative flex items-center justify-center">
+                <div className="absolute -top-10 left-1/2 h-16 w-10 -translate-x-1/2 rounded-b-full bg-gradient-to-b from-white to-lenka-gold shadow-lg" />
+                <motion.div
+                  key={spinId}
+                  className="relative h-[320px] w-[320px] rounded-full border-4 border-white/50 p-4 shadow-lenka-glow sm:h-[420px] sm:w-[420px]"
+                  style={{
+                    backgroundImage: `conic-gradient(${wheelGradient})`,
+                  }}
+                  initial={{ rotate: 0 }}
+                  animate={{ rotate: targetAngle }}
+                  transition={{ duration: 4.6, ease: [0.12, 0.67, 0.22, 0.99] }}
+                  onAnimationComplete={onComplete}
+                >
+                  {wheelSegments.map((label, index) => {
+                    const angle = (360 / wheelSegments.length) * index;
+                    return (
+                      <div
+                        key={`${label}-${index}`}
+                        className="absolute left-1/2 top-1/2 origin-top text-xs font-black uppercase tracking-widest text-white"
+                        style={{
+                          transform: `rotate(${angle}deg) translate(-50%, -82%)`,
+                        }}
+                      >
+                        <span className="drop-shadow-lg">{label}</span>
+                      </div>
+                    );
+                  })}
+                  <div className="absolute inset-6 rounded-full border-4 border-white/10 bg-lenka-midnight/70 backdrop-blur" />
+                  <div className="absolute inset-[32%] flex flex-col items-center justify-center rounded-full border border-white/20 bg-white/90 text-center text-lenka-midnight shadow-inner">
+                    <p className="text-xs uppercase tracking-[0.4em] text-lenka-midnight/60">
+                      Wheel Prize
+                    </p>
+                    <p className="text-3xl font-black text-lenka-midnight">{prize}</p>
+                  </div>
+                </motion.div>
+              </div>
+            )}
             <div className="text-center">
               <p className="text-xs uppercase tracking-[0.4em] text-white/60">
                 Wheel of Lenka
@@ -230,6 +263,9 @@ export default function LobbyPage() {
     roundIndex: number;
     totalRounds: number;
   } | null>(null);
+  const prefersReducedMotion = useReducedMotion();
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [, startLobbyTransition] = useTransition();
   
   const mountedRef = useRef(false);
   const activeTimeouts = useRef<NodeJS.Timeout[]>([]); // Track all active timeouts
@@ -238,7 +274,21 @@ export default function LobbyPage() {
   const prevTimeLeftRef = useRef(timeLeft);
   const wheelVisibleRef = useRef(isWheelVisible);
   const previousLobbyStatusRef = useRef<Lobby['status'] | null>(null);
+  const playerNameRef = useRef<string>('');
+  const clientIdRef = useRef<string>('');
+  const activeLobbyCodeRef = useRef<string | null>(code !== '__create__' ? code : null);
   const { playTick, playDing, playBuzzer, playFanfare, playApplause } = useSfx();
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia('(max-width: 768px)');
+    const updateViewport = () => setIsMobileViewport(mediaQuery.matches);
+    updateViewport();
+    mediaQuery.addEventListener('change', updateViewport);
+    return () => mediaQuery.removeEventListener('change', updateViewport);
+  }, []);
+
+  const disableHeavyEffects = prefersReducedMotion || isMobileViewport;
 
   useEffect(() => {
     wheelVisibleRef.current = isWheelVisible;
@@ -322,14 +372,26 @@ export default function LobbyPage() {
   };
 
   useEffect(() => {
+    if (code === '__create__' && typeof window !== 'undefined') {
+      const lastCode = window.sessionStorage.getItem('lenka:lastLobbyCode');
+      if (lastCode) {
+        router.replace(`/lobby/${lastCode}`);
+        return;
+      }
+    }
+    
     console.log('🚀 Lobby page effect running for code:', code);
     mountedRef.current = true;
+    activeLobbyCodeRef.current = code !== '__create__' ? code : null;
 
     const playerName = localStorage.getItem('playerName');
     if (!playerName) {
       router.push('/');
       return;
     }
+    playerNameRef.current = playerName;
+    const ensuredClientId = ensurePlayerClientId();
+    clientIdRef.current = ensuredClientId;
     
     console.log('🔌 Setting up fresh event listeners...');
 
@@ -339,6 +401,7 @@ export default function LobbyPage() {
     // Set up event listeners FIRST before connecting
     const unsubLobbyState = onLobbyState((lobbyData) => {
       console.log('Received lobby state:', lobbyData);
+      activeLobbyCodeRef.current = lobbyData.code;
 
       // CRITICAL: If status changed to 'waiting', clear ALL game-related state
       const previousStatus = previousLobbyStatusRef.current;
@@ -366,13 +429,18 @@ export default function LobbyPage() {
         setIsWheelVisible(false);
       }
 
-      setLobby(lobbyData);
-      const socket = getSocket();
-      const player = lobbyData.players.find((p: Player) => p.id === socket.id);
-      if (player) {
-        setCurrentPlayer(player);
-      }
-      previousLobbyStatusRef.current = lobbyData.status;
+      startLobbyTransition(() => {
+        setLobby(lobbyData);
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.setItem('lenka:lastLobbyCode', lobbyData.code);
+        }
+        const socket = getSocket();
+        const player = lobbyData.players.find((p: Player) => p.id === socket.id);
+        if (player) {
+          setCurrentPlayer(player);
+        }
+        previousLobbyStatusRef.current = lobbyData.status;
+      });
       
       // Update URL if we just created
       if (code === '__create__') {
@@ -468,6 +536,19 @@ export default function LobbyPage() {
     });
 
     // NOW connect and initialize after all listeners are set up
+    const socketInstance = getSocket();
+    const handleReconnect = () => {
+      const lobbyCode = activeLobbyCodeRef.current || (code !== '__create__' ? code : null);
+      const storedName = localStorage.getItem('playerName') || playerNameRef.current;
+      if (!lobbyCode || !storedName) {
+        return;
+      }
+      console.log(`🔁 Socket reconnected. Rejoining lobby ${lobbyCode}`);
+      joinLobby(lobbyCode, storedName, clientIdRef.current);
+    };
+    socketInstance.on('reconnect', handleReconnect);
+    cleanupFunctions.push(() => socketInstance.off('reconnect', handleReconnect));
+
     const initializeSocket = async () => {
       try {
         await connectSocket();
@@ -480,13 +561,13 @@ export default function LobbyPage() {
           const roundsTotal = parseInt(localStorage.getItem('roundsTotal') || '5');
           const productSource = (localStorage.getItem('productSource') || 'mixed') as 'kuantokusta' | 'temu' | 'mixed';
           console.log('Creating lobby with', roundsTotal, 'rounds, source:', productSource);
-          createLobby(roundsTotal, playerName, productSource);
+          createLobby(roundsTotal, playerName, productSource, clientIdRef.current);
           localStorage.removeItem('createLobby');
           localStorage.removeItem('roundsTotal');
           localStorage.removeItem('productSource');
         } else {
           console.log('Joining lobby', code);
-          joinLobby(code, playerName);
+          joinLobby(code, playerName, clientIdRef.current);
         }
       } catch (error) {
         console.error('Failed to connect socket:', error);
@@ -632,31 +713,7 @@ export default function LobbyPage() {
     if (lobby && !isReady) {
       setIsReady(true);
       playDing();
-      
-      // If it's the last round, skip to final results immediately
-      const isLastRound = roundIndex + 1 === totalRounds;
-      if (isLastRound) {
-        console.log('🏁 Last round - showing final results immediately');
-        // Show final leaderboard
-        if (lobby.players) {
-          const leaderboard = lobby.players
-            .map(p => ({ playerId: p.id, playerName: p.name, totalScore: p.score }))
-            .sort((a, b) => b.totalScore - a.totalScore);
-          setFinalLeaderboard(leaderboard);
-          setShowResults(false);
-          setRoundResults(null);
-          setCurrentProduct(null); // Clear current product
-          
-          // Update lobby status to 'finished' so UI shows final screen
-          setLobby((prev) => {
-            if (!prev) return prev;
-            return { ...prev, status: 'finished' };
-          });
-        }
-      } else {
-        // Normal ready for next round
-        markPlayerReady(lobby.code);
-      }
+      markPlayerReady(lobby.code);
     }
   };
 
@@ -672,6 +729,9 @@ export default function LobbyPage() {
     
     try {
       leaveLobby(lobby.code);
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.removeItem('lenka:lastLobbyCode');
+      }
       // Small delay before navigation to ensure socket message is sent
       addTimeout(() => {
         router.push('/');
@@ -698,12 +758,13 @@ export default function LobbyPage() {
       targetAngle={wheelTargetAngle}
       message={wheelMessage}
       onComplete={handleWheelComplete}
+      reduceMotion={disableHeavyEffects}
     />
   );
 
   if (!lobby) {
     return (
-      <StageBackground maxWidth="max-w-3xl">
+      <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-3xl">
         {wheelOverlay}
         <div className="rounded-3xl border border-white/15 bg-white/10 p-10 text-center shadow-lenka-card backdrop-blur">
           {error ? (
@@ -735,7 +796,7 @@ export default function LobbyPage() {
   // Loading products screen
   if (isLoadingProducts) {
     return (
-      <StageBackground maxWidth="max-w-4xl">
+      <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-4xl">
         {wheelOverlay}
         <div className="rounded-3xl border border-white/15 bg-white/5 p-8 text-center shadow-lenka-card backdrop-blur">
           <div className="mb-8 flex flex-col items-center gap-4">
@@ -771,7 +832,7 @@ export default function LobbyPage() {
   // Playing - Show results (check FIRST before waiting/finished screens)
   if (showResults && roundResults) {
     return (
-      <StageBackground maxWidth="max-w-5xl">
+      <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl">
         {wheelOverlay}
         <div className="space-y-6">
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lenka-card backdrop-blur">
@@ -960,7 +1021,7 @@ export default function LobbyPage() {
   // Game finished screen (CHECK BEFORE currentProduct to prevent showing guess screen)
   if (lobby.status === 'finished' && finalLeaderboard) {
     return (
-      <StageBackground maxWidth="max-w-4xl">
+      <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-4xl">
         {wheelOverlay}
         <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center shadow-lenka-card backdrop-blur">
           <div className="flex flex-col items-center gap-3">
@@ -1026,7 +1087,7 @@ export default function LobbyPage() {
   // Playing - Guessing phase
   if (currentProduct) {
     return (
-      <StageBackground maxWidth="max-w-5xl">
+      <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl">
         {wheelOverlay}
         <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lenka-card backdrop-blur">
@@ -1172,7 +1233,7 @@ export default function LobbyPage() {
   // Waiting screen (default)
   if (lobby.status === 'waiting') {
     return (
-      <StageBackground maxWidth="max-w-5xl">
+      <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl">
         {wheelOverlay}
         <div className="grid gap-6 lg:grid-cols-[1.1fr,0.9fr]">
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lenka-card backdrop-blur">
