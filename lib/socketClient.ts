@@ -76,7 +76,7 @@ export function removeAllGameListeners() {
 export function createLobby(
   roundsTotal: number,
   playerName: string,
-  productSource: 'kuantokusta' | 'temu' | 'mixed' = 'mixed',
+  productSource: 'kuantokusta' | 'temu' | 'decathlon' | 'mixed' = 'mixed',
   clientId: string
 ) {
   const socket = getSocket();
