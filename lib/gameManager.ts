@@ -1,6 +1,7 @@
 import { Product } from './productTypes';
 import { fetchRandomKuantoKustaProductsAPI } from './fetchers/kuantokusta-api.fetcher';
 import { fetchRandomTemuProducts } from './fetchers/temu.fetcher';
+import { fetchRandomDecathlonProducts } from './fetchers/decathlon.fetcher';
 import { 
   calculateRoundResults as scoringCalculateRoundResults, 
   generateLeaderboard,
@@ -29,7 +30,7 @@ export type Lobby = {
   products?: Product[];
   guesses: Record<string, number>;
   readyPlayers: Record<string, boolean>; // Track who is ready for next round
-  productSource: 'kuantokusta' | 'temu' | 'mixed'; // Where to fetch products from
+  productSource: 'kuantokusta' | 'temu' | 'decathlon' | 'mixed'; // Where to fetch products from
   createdAt: number;
 };
 
@@ -75,6 +76,21 @@ class GameManager {
     return trimmed.slice(0, this.maxNameLength);
   }
 
+  updateLobbySettings(code: string, roundsTotal: number, productSource: Lobby['productSource']): Lobby | null {
+    const lobby = this.lobbies.get(code);
+    
+    if (!lobby || lobby.status !== 'waiting') {
+      return null;
+    }
+
+    const allowedRounds = [5, 8, 10];
+    const sanitizedRounds = allowedRounds.includes(roundsTotal) ? roundsTotal : allowedRounds[0];
+    lobby.roundsTotal = sanitizedRounds;
+    lobby.productSource = productSource;
+
+    return lobby;
+  }
+
   private generateUniqueName(lobby: Lobby, desiredName: string): string {
     if (!lobby.players.some(player => player.name === desiredName)) {
       return desiredName;
@@ -104,7 +120,7 @@ class GameManager {
     roundsTotal: number,
     hostName: string,
     hostId: string,
-    productSource: 'kuantokusta' | 'temu' | 'mixed' = 'mixed',
+    productSource: 'kuantokusta' | 'temu' | 'decathlon' | 'mixed' = 'mixed',
     clientId?: string
   ): Lobby {
     const code = this.generateCode();
@@ -261,21 +277,36 @@ class GameManager {
       
       let kkProducts: Product[] = [];
       let temuProducts: Product[] = [];
+      let decathlonProducts: Product[] = [];
       
       if (lobby.productSource === 'mixed') {
-        // Split products 50/50 between KuantoKusta and Temu
-        const kkCount = Math.ceil(lobby.roundsTotal / 2);
-        const temuCount = Math.floor(lobby.roundsTotal / 2);
+        // Split products between KuantoKusta, Temu and Decathlon
+        const providers: Array<'kuantokusta' | 'temu' | 'decathlon'> = ['kuantokusta', 'temu', 'decathlon'];
+        const baseCount = Math.floor(lobby.roundsTotal / providers.length);
+        const counts = {
+          kuantokusta: baseCount,
+          temu: baseCount,
+          decathlon: baseCount,
+        };
+        let remainder = lobby.roundsTotal - baseCount * providers.length;
+        let idx = 0;
+        while (remainder > 0) {
+          counts[providers[idx]] += 1;
+          remainder -= 1;
+          idx = (idx + 1) % providers.length;
+        }
         
-        console.log(`🛒 [SERVER] Fetching ${kkCount} from KuantoKusta, ${temuCount} from Temu...`);
+        console.log(`🛒 [SERVER] Fetching mixed set: KK=${counts.kuantokusta}, Temu=${counts.temu}, Decathlon=${counts.decathlon}`);
         
-        // Fetch from both sources in parallel
-        [kkProducts, temuProducts] = await Promise.all([
-          fetchRandomKuantoKustaProductsAPI(kkCount),
-          fetchRandomTemuProducts(temuCount),
-        ]);
+        const fetchPromises = [
+          counts.kuantokusta > 0 ? fetchRandomKuantoKustaProductsAPI(counts.kuantokusta) : Promise.resolve([]),
+          counts.temu > 0 ? fetchRandomTemuProducts(counts.temu) : Promise.resolve([]),
+          counts.decathlon > 0 ? fetchRandomDecathlonProducts(counts.decathlon) : Promise.resolve([]),
+        ];
         
-        console.log(`✅ [SERVER] Got ${kkProducts.length} from KuantoKusta, ${temuProducts.length} from Temu`);
+        [kkProducts, temuProducts, decathlonProducts] = await Promise.all(fetchPromises);
+        
+        console.log(`✅ [SERVER] Mixed sources -> KK=${kkProducts.length}, Temu=${temuProducts.length}, Decathlon=${decathlonProducts.length}`);
       } else if (lobby.productSource === 'kuantokusta') {
         // Fetch only from KuantoKusta
         console.log(`🛒 [SERVER] Fetching ${lobby.roundsTotal} from KuantoKusta only...`);
@@ -286,10 +317,14 @@ class GameManager {
         console.log(`🛒 [SERVER] Fetching ${lobby.roundsTotal} from Temu only...`);
         temuProducts = await fetchRandomTemuProducts(lobby.roundsTotal);
         console.log(`✅ [SERVER] Got ${temuProducts.length} from Temu`);
+      } else if (lobby.productSource === 'decathlon') {
+        console.log(`🛒 [SERVER] Fetching ${lobby.roundsTotal} from Decathlon only...`);
+        decathlonProducts = await fetchRandomDecathlonProducts(lobby.roundsTotal);
+        console.log(`✅ [SERVER] Got ${decathlonProducts.length} from Decathlon`);
       }
       
       // Combine and shuffle products
-      const allProducts = [...kkProducts, ...temuProducts];
+      const allProducts = [...kkProducts, ...temuProducts, ...decathlonProducts];
       lobby.products = allProducts.sort(() => Math.random() - 0.5).slice(0, lobby.roundsTotal);
       
       // Validate we have enough products
@@ -298,7 +333,9 @@ class GameManager {
       }
       
       console.log(`✅ [SERVER] Combined ${lobby.products.length} products for game`);
-      console.log(`📊 [SERVER] Sources: ${lobby.products.filter(p => p.source === 'kuantokusta').length} KuantoKusta, ${lobby.products.filter(p => p.source === 'temu').length} Temu`);
+      console.log(
+        `📊 [SERVER] Sources: KK=${lobby.products.filter(p => p.source === 'kuantokusta').length}, Temu=${lobby.products.filter(p => p.source === 'temu').length}, Decathlon=${lobby.products.filter(p => p.source === 'decathlon').length}`
+      );
       
       // Start the game
       lobby.status = 'playing';

@@ -13,14 +13,14 @@ export default function SfxToggle() {
         playTick();
         toggleMute();
       }}
-      className="group inline-flex h-12 w-12 items-center justify-center rounded-full border-2 border-lenka-gold bg-gradient-to-br from-lenka-gold/20 to-transparent text-lenka-gold shadow-lenka-card transition hover:scale-105 hover:border-lenka-goldBright hover:text-white"
+      className="flex h-10 w-10 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white transition hover:bg-white/20"
       whileTap={{ scale: 0.92 }}
       aria-label={isMuted ? 'Unmute SFX' : 'Mute SFX'}
     >
       {isMuted ? (
-        <VolumeX className="h-6 w-6 drop-shadow-[0_0_10px_rgba(255,215,111,0.6)]" />
+        <VolumeX className="h-5 w-5" />
       ) : (
-        <Volume2 className="h-6 w-6 drop-shadow-[0_0_14px_rgba(255,235,133,0.9)]" />
+        <Volume2 className="h-5 w-5" />
       )}
     </motion.button>
   );

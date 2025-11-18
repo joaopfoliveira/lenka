@@ -8,10 +8,12 @@ export default function Providers({ children }: { children: ReactNode }) {
   return (
     <SfxProvider>
       <div className="relative min-h-screen">
-        <div className="fixed top-4 right-4 z-50">
-          <SfxToggle />
-        </div>
         {children}
+        <div className="pointer-events-none fixed top-4 right-4 z-50 flex flex-col items-end gap-2">
+          <div className="pointer-events-auto">
+            <SfxToggle />
+          </div>
+        </div>
       </div>
     </SfxProvider>
   );

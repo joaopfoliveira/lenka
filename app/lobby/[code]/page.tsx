@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useTransition, type ReactNode } from 'react';
+import { useEffect, useState, useRef, useTransition, useCallback, type ReactNode } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -23,6 +23,7 @@ import {
   submitGuess,
   markPlayerReady,
   resetGame,
+  updateLobbySettings,
   removeAllGameListeners,
   onLobbyState,
   onPlayerJoined,
@@ -42,6 +43,7 @@ import { Lobby, Player } from '@/lib/gameManager';
 import { Product } from '@/data/products';
 import ProductImage from '@/app/components/ProductImage';
 import { useSfx } from '@/app/components/sfx/SfxProvider';
+import { useLanguage, type Language } from '@/app/hooks/useLanguage';
 import { ensurePlayerClientId } from '@/app/utils/playerIdentity';
 
 const wheelSegments = [
@@ -77,30 +79,54 @@ const wheelGradient = wheelSegments
   })
   .join(', ');
 
-const showtimeQuips = [
-  (total?: number) =>
-    `Polishing ${total ?? 'a few'} secret showcase${total && total > 1 ? 's' : ''}...`,
-  () => 'Cue the confetti! Producers are lining up the next prize.',
-  () => 'Backstage crew is whispering prices to the big wheel...',
-  () => 'Cranking the neon lights and unlocking the prize vault...',
+const showtimeQuips: Array<
+  (total?: number) => { en: string; pt: string }
+> = [
+  (total) => {
+    const count = total ?? 'a few';
+    return {
+      en: `Polishing ${count} secret showcase${total && total > 1 ? 's' : ''}...`,
+      pt: `A polir ${total ?? 'alguns'} segredos do espetáculo...`,
+    };
+  },
+  () => ({
+    en: 'Cue the confetti! Producers are lining up the next prize.',
+    pt: 'Confettis prontos! A produção está a alinhar o próximo prémio.',
+  }),
+  () => ({
+    en: 'Backstage crew is whispering prices to the big wheel...',
+    pt: 'A equipa de bastidores está a soprar preços à grande roda...',
+  }),
+  () => ({
+    en: 'Cranking the neon lights and unlocking the prize vault...',
+    pt: 'A acender as luzes neon e a abrir o cofre dos prémios...',
+  }),
 ];
 
-function getShowtimeMessage(total?: number) {
+function getShowtimeMessage(language: Language, total?: number) {
   const pick = showtimeQuips[Math.floor(Math.random() * showtimeQuips.length)];
-  return pick(total);
+  const message = pick(total);
+  return language === 'pt' ? message.pt : message.en;
 }
 
 function StageBackground({
   children,
   maxWidth = 'max-w-5xl',
   disableMotion = false,
+  languageToggle,
 }: {
   children: ReactNode;
   maxWidth?: string;
   disableMotion?: boolean;
+  languageToggle?: ReactNode;
 }) {
   return (
     <div className="relative min-h-screen overflow-hidden bg-lenka-stage px-3 py-6 text-white sm:px-6">
+      {languageToggle && (
+        <div className="pointer-events-auto absolute right-24 top-4 z-30">
+          {languageToggle}
+        </div>
+      )}
       <div className="pointer-events-none absolute inset-0 opacity-80">
         {disableMotion ? (
           <>
@@ -147,13 +173,13 @@ function LobbyCodeBadge({
   );
 }
 
-function SafeExitButton({ onClick }: { onClick: () => void }) {
+function SafeExitButton({ onClick, label }: { onClick: () => void; label: string }) {
   return (
     <button
       onClick={onClick}
       className="w-full rounded-full border border-white/30 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
     >
-      Exit to Main Menu
+      {label}
     </button>
   );
 }
@@ -166,6 +192,7 @@ function WheelOverlay({
   message,
   onComplete,
   reduceMotion = false,
+  language,
 }: {
   visible: boolean;
   prize: string;
@@ -174,6 +201,7 @@ function WheelOverlay({
   message: string;
   onComplete: () => void;
   reduceMotion?: boolean;
+  language: Language;
 }) {
   useEffect(() => {
     if (!reduceMotion || !visible) return;
@@ -204,7 +232,7 @@ function WheelOverlay({
                   <Sparkles className="h-10 w-10 text-lenka-gold" />
                 </div>
                 <p className="text-base font-semibold text-white">
-                  {message || 'Preparing next product...'}
+                  {message || (language === 'pt' ? 'A preparar o próximo produto...' : 'Preparing next product...')}
                 </p>
               </div>
             ) : (
@@ -237,9 +265,9 @@ function WheelOverlay({
                   })}
                   <div className="absolute inset-6 rounded-full border-4 border-white/10 bg-lenka-midnight/70 backdrop-blur" />
                   <div className="absolute inset-[32%] flex flex-col items-center justify-center rounded-full border border-white/20 bg-white/90 text-center text-lenka-midnight shadow-inner">
-                    <p className="text-xs uppercase tracking-[0.4em] text-lenka-midnight/60">
-                      Wheel Prize
-                    </p>
+                  <p className="text-xs uppercase tracking-[0.4em] text-lenka-midnight/60">
+                    {language === 'pt' ? 'Prémio da roda' : 'Wheel Prize'}
+                  </p>
                     <p className="text-3xl font-black text-lenka-midnight">{prize}</p>
                   </div>
                 </motion.div>
@@ -247,7 +275,7 @@ function WheelOverlay({
             )}
             <div className="text-center">
               <p className="text-xs uppercase tracking-[0.4em] text-white/60">
-                Wheel of Lenka
+                {language === 'pt' ? 'Roda da Lenka' : 'Wheel of Lenka'}
               </p>
               <p className="text-lg font-semibold text-white">{message}</p>
             </div>
@@ -286,7 +314,7 @@ export default function LobbyPage() {
   const [wheelSpinId, setWheelSpinId] = useState(0);
   const [wheelTargetAngle, setWheelTargetAngle] = useState(0);
   const [wheelPrize, setWheelPrize] = useState('50€');
-  const [wheelMessage, setWheelMessage] = useState('Spinning the big wheel...');
+  const [wheelMessage, setWheelMessage] = useState('');
   const [pendingLoadingState, setPendingLoadingState] = useState<{
     message: string;
     total: number;
@@ -312,6 +340,60 @@ export default function LobbyPage() {
   const kickingPlayerIdRef = useRef<string | null>(null);
   const safeReturnRef = useRef<() => void>(() => {});
   const { playTick, playDing, playBuzzer, playFanfare, playApplause } = useSfx();
+  const { language, toggleLanguage } = useLanguage();
+  const t = (en: string, pt: string) => (language === 'pt' ? pt : en);
+  const languageToggle = (
+    <button
+      onClick={toggleLanguage}
+      className="flex h-10 w-10 items-center justify-center rounded-full border border-white/30 bg-white/10 text-xl text-white transition hover:bg-white/20"
+    >
+      {language === 'en' ? '🇵🇹' : '🇬🇧'}
+    </button>
+  );
+  const languageRef = useRef(language);
+
+  useEffect(() => {
+    languageRef.current = language;
+  }, [language]);
+  const roundOptions = [5, 8, 10] as const;
+  const productSourceOptions: Array<{
+    value: 'mixed' | 'kuantokusta' | 'temu' | 'decathlon';
+    label: { en: string; pt: string };
+    description: { en: string; pt: string };
+  }> = [
+    {
+      value: 'mixed',
+      label: { en: 'Mixed', pt: 'Mistura' },
+      description: { en: 'KuantoKusta + Temu + Decathlon', pt: 'KuantoKusta + Temu + Decathlon' },
+    },
+    {
+      value: 'kuantokusta',
+      label: { en: 'KuantoKusta', pt: 'KuantoKusta' },
+      description: { en: 'Portuguese supermarket lineup', pt: 'Seleção de supermercados portugueses' },
+    },
+    {
+      value: 'temu',
+      label: { en: 'Temu', pt: 'Temu' },
+      description: { en: 'International marketplace chaos', pt: 'Marketplace internacional' },
+    },
+    {
+      value: 'decathlon',
+      label: { en: 'Decathlon', pt: 'Decathlon' },
+      description: { en: 'Sports gear roulette', pt: 'Roleta de artigos desportivos' },
+    },
+  ];
+  const getProductSourceLabel = (source: Lobby['productSource']) => {
+    switch (source) {
+      case 'kuantokusta':
+        return t('KuantoKusta', 'KuantoKusta');
+      case 'temu':
+        return t('Temu', 'Temu');
+      case 'decathlon':
+        return t('Decathlon', 'Decathlon');
+      default:
+        return t('Mixed', 'Mistura');
+    }
+  };
 
   const disableHeavyEffects = true;
 
@@ -343,7 +425,7 @@ export default function LobbyPage() {
     setFinalLeaderboard(null);
   };
 
-  const startWheelSpin = (message?: string) => {
+  const startWheelSpin = useCallback((message: string) => {
     const totalSegments = wheelSegments.length;
     const fullSpins = Math.floor(Math.random() * 3) + 3;
     const selectedIndex = Math.floor(Math.random() * totalSegments);
@@ -354,11 +436,11 @@ export default function LobbyPage() {
 
     setWheelTargetAngle(target);
     setWheelPrize(wheelSegments[selectedIndex]);
-    setWheelMessage(message ?? 'Showtime!');
+    setWheelMessage(message);
     setWheelSpinId((prev) => prev + 1);
     setIsWheelVisible(true);
     wheelTimestampRef.current = Date.now();
-  };
+  }, []);
 
   const handleWheelComplete = () => {
     playFanfare();
@@ -378,7 +460,7 @@ export default function LobbyPage() {
       setPendingLoadingState(null);
     } else {
       setIsLoadingProducts(true);
-      setLoadingMessage('Lining up the first item...');
+      setLoadingMessage(t('Lining up the first item...', 'A alinhar o primeiro item...'));
     }
   };
 
@@ -503,7 +585,7 @@ export default function LobbyPage() {
 
     const unsubGameLoading = onGameLoading(({ message, totalRounds: total }) => {
       console.log('⏳ Loading products:', message);
-      const funMessage = getShowtimeMessage(total);
+      const funMessage = getShowtimeMessage(languageRef.current, total);
       setIsStarting(false);
       setPendingLoadingState({ message: funMessage, total });
       setWheelMessage(funMessage);
@@ -567,7 +649,11 @@ export default function LobbyPage() {
         return;
       }
       console.log('⛔️ You have been removed from the lobby');
-      setError('Foste removido do lobby pelo host.');
+      setError(
+        languageRef.current === 'pt'
+          ? 'Foste removido do lobby pelo host.'
+          : 'You were removed from the lobby by the host.'
+      );
       safeReturnRef.current();
     });
 
@@ -604,7 +690,7 @@ export default function LobbyPage() {
         
         if (shouldCreate && code === '__create__') {
           const roundsTotal = parseInt(localStorage.getItem('roundsTotal') || '5');
-          const productSource = (localStorage.getItem('productSource') || 'mixed') as 'kuantokusta' | 'temu' | 'mixed';
+          const productSource = (localStorage.getItem('productSource') || 'mixed') as 'kuantokusta' | 'temu' | 'decathlon' | 'mixed';
           console.log('Creating lobby with', roundsTotal, 'rounds, source:', productSource);
           createLobby(roundsTotal, playerName, productSource, clientIdRef.current);
           localStorage.removeItem('createLobby');
@@ -616,7 +702,11 @@ export default function LobbyPage() {
         }
       } catch (error) {
         console.error('Failed to connect socket:', error);
-        setError('Failed to connect to server. Please refresh the page.');
+        setError(
+          languageRef.current === 'pt'
+            ? 'Falha na ligação ao servidor. Atualiza a página.'
+            : 'Failed to connect to server. Please refresh the page.'
+        );
       }
     };
 
@@ -659,7 +749,7 @@ export default function LobbyPage() {
         }
       });
     };
-  }, [code, router]);
+  }, [code, router, startWheelSpin]);
 
   useEffect(() => {
     if (!currentProduct) {
@@ -713,7 +803,7 @@ export default function LobbyPage() {
     setLoadingMessage('');
     setPendingLoadingState(null);
     setPendingRoundPayload(null);
-    startWheelSpin('Spinning the Wheel of Lenka...');
+    startWheelSpin(t('Spinning the Wheel of Lenka...', 'A rodar a Roda da Lenka...'));
     playDing();
 
     // Use server-side API fetch (works!)
@@ -726,7 +816,7 @@ export default function LobbyPage() {
     
     const value = parseFloat(guess);
     if (isNaN(value) || value < 0) {
-      setError('Please enter a valid price');
+      setError(t('Please enter a valid price', 'Introduz um preço válido'));
       return;
     }
 
@@ -763,6 +853,22 @@ export default function LobbyPage() {
     setKickingPlayerId(playerId);
     kickPlayer(lobby.code, playerId);
     addTimeout(() => setKickingPlayerId(null), 2000);
+  };
+
+  const handleLobbySettingsChange = (settings: {
+    roundsTotal?: number;
+    productSource?: 'kuantokusta' | 'temu' | 'decathlon' | 'mixed';
+  }) => {
+    if (!lobby || !currentPlayer?.isHost) {
+      return;
+    }
+    const nextRounds = settings.roundsTotal ?? lobby.roundsTotal;
+    const nextSource = settings.productSource ?? lobby.productSource;
+    if (nextRounds === lobby.roundsTotal && nextSource === lobby.productSource) {
+      return;
+    }
+    playTick();
+    updateLobbySettings(lobby.code, nextRounds, nextSource);
   };
 
   const renderKickButton = (player: Player) => {
@@ -855,12 +961,13 @@ export default function LobbyPage() {
       message={wheelMessage}
       onComplete={handleWheelComplete}
       reduceMotion={disableHeavyEffects}
+      language={language}
     />
   );
 
   if (!lobby) {
     return (
-      <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-3xl">
+      <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-3xl" languageToggle={languageToggle}>
         {wheelOverlay}
         <div className="rounded-3xl border border-white/15 bg-white/10 p-10 text-center shadow-lenka-card backdrop-blur">
           {error ? (
@@ -870,17 +977,17 @@ export default function LobbyPage() {
                 onClick={() => router.push('/')}
                 className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-gradient-to-r from-lenka-electric to-lenka-pink px-6 py-3 text-lg font-semibold text-white shadow-lenka-glow"
               >
-                Return Home
+                {t('Return Home', 'Voltar ao início')}
               </button>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-4">
               <Loader2 className="h-12 w-12 animate-spin text-lenka-gold" />
               <p className="text-xl font-semibold text-white">
-                Connecting to your lobby...
+                {t('Connecting to your lobby...', 'A ligar ao teu lobby...')}
               </p>
               <p className="text-sm uppercase tracking-[0.4em] text-white/70">
-                Negotiating with Lenka HQ
+                {t('Negotiating with Lenka HQ', 'A negociar com a Lenka HQ')}
               </p>
             </div>
           )}
@@ -892,23 +999,25 @@ export default function LobbyPage() {
   // Loading products screen
   if (isLoadingProducts) {
     return (
-      <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-4xl">
+      <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-4xl" languageToggle={languageToggle}>
         {wheelOverlay}
         <div className="rounded-3xl border border-white/15 bg-white/5 p-8 text-center shadow-lenka-card backdrop-blur">
           <div className="mb-8 flex flex-col items-center gap-4">
             <RadioTower className="h-16 w-16 text-lenka-gold drop-shadow-[0_0_25px_rgba(255,215,111,0.6)]" />
-            <h1 className="text-4xl font-extrabold text-white">Preparing Your Show</h1>
+            <h1 className="text-4xl font-extrabold text-white">{t('Preparing Your Show', 'A preparar o espetáculo')}</h1>
             <p className="text-lg text-white/80">{loadingMessage}</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-left">
             <p className="text-sm uppercase tracking-[0.4em] text-white/60">
-              KuantoKusta Search
+              {t('Fetching surprises', 'A buscar surpresas')}
             </p>
             <p className="mt-2 text-2xl font-bold text-lenka-gold">
-              {totalRounds} surprise product(s)
+              {language === 'pt'
+                ? `${totalRounds} produtos surpresa`
+                : `${totalRounds} surprise product(s)`}
             </p>
             <p className="text-sm text-white/80">
-              Fresh data, real-time prices, and plenty of drama.
+              {t('Fresh data, real-time prices, and plenty of drama.', 'Dados frescos, preços em tempo real e muito drama.')}
             </p>
           </div>
           <div className="mt-8 flex justify-center gap-2">
@@ -922,7 +1031,7 @@ export default function LobbyPage() {
           </div>
         </div>
         <div className="mt-6">
-          <SafeExitButton onClick={handleSafeReturn} />
+          <SafeExitButton onClick={handleSafeReturn} label={t('Exit to Main Menu', 'Voltar ao menu principal')} />
         </div>
       </StageBackground>
     );
@@ -931,7 +1040,7 @@ export default function LobbyPage() {
   // Playing - Show results (check FIRST before waiting/finished screens)
   if (showResults && roundResults) {
     return (
-      <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl">
+      <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl" languageToggle={languageToggle}>
         {wheelOverlay}
         <LobbyCodeBadge code={lobby.code} onCopy={copyLobbyCode} />
         <div className="space-y-6">
@@ -939,13 +1048,15 @@ export default function LobbyPage() {
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="text-xs uppercase tracking-[0.4em] text-white/60">
-                  Round {roundIndex + 1} of {totalRounds}
+                  {language === 'pt'
+                    ? `Ronda ${roundIndex + 1} de ${totalRounds}`
+                    : `Round ${roundIndex + 1} of ${totalRounds}`}
                 </p>
                 <h1 className="text-3xl font-bold text-lenka-gold">
-                  Showdown Results
+                  {t('Showdown Results', 'Resultados da ronda')}
                 </h1>
                 <p className="text-sm text-white/70">
-                  The closest guess earns the spotlight and the bonus.
+                  {t('The closest guess earns the spotlight and the bonus.', 'Quem acerta mais aproxima-se dos holofotes e do bónus.')}
                 </p>
               </div>
               <button
@@ -958,21 +1069,21 @@ export default function LobbyPage() {
                 }`}
               >
                 <DoorOpen className="h-4 w-4" />
-                {isLeaving ? 'Leaving...' : 'Leave Show'}
+                {isLeaving ? t('Leaving...', 'A sair...') : t('Leave Show', 'Sair do show')}
               </button>
             </div>
 
             <div className="mt-6 grid gap-6 md:grid-cols-2">
               <div className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-inner">
                 <p className="text-xs uppercase tracking-[0.4em] text-white/60">
-                  Real Price
+                  {t('Real Price', 'Preço real')}
                 </p>
                 <p className="mt-3 text-4xl font-black text-lenka-gold">
                   €{roundResults.realPrice.toFixed(2)}
                 </p>
                 {roundResults.productStore && (
                   <p className="text-sm text-white/70">
-                    From {roundResults.productStore}
+                    {t('From', 'Loja')} {roundResults.productStore}
                   </p>
                 )}
                 {roundResults.productUrl && (
@@ -982,7 +1093,7 @@ export default function LobbyPage() {
                     rel="noopener noreferrer"
                     className="mt-4 inline-flex items-center gap-2 rounded-full border border-lenka-gold/40 px-4 py-2 text-sm font-semibold text-lenka-gold transition hover:bg-lenka-gold/10"
                   >
-                    View product
+                    {t('View product', 'Ver produto')}
                     <Sparkles className="h-4 w-4" />
                   </a>
                 )}
@@ -990,7 +1101,7 @@ export default function LobbyPage() {
 
               <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
                 <p className="text-xs uppercase tracking-[0.4em] text-white/60">
-                  Current Standings
+                  {t('Current Standings', 'Classificação atual')}
                 </p>
                 <div className="mt-3 space-y-2">
                   {roundResults.leaderboard.map((player: any, index: number) => (
@@ -1019,13 +1130,13 @@ export default function LobbyPage() {
               <table className="w-full text-sm text-white/80">
                 <thead>
                   <tr className="text-left text-xs uppercase tracking-[0.3em] text-white/50">
-                    <th className="px-3 py-2">Player</th>
-                    <th className="px-3 py-2 text-right">Guess</th>
+                    <th className="px-3 py-2">{t('Player', 'Jogador')}</th>
+                    <th className="px-3 py-2 text-right">{t('Guess', 'Palpite')}</th>
                     <th className="px-3 py-2 text-right">Δ %</th>
-                    <th className="px-3 py-2 text-right">Base</th>
-                    <th className="px-3 py-2 text-right">Bonus</th>
-                    <th className="px-3 py-2 text-right">Round</th>
-                    <th className="px-3 py-2 text-right">Total</th>
+                    <th className="px-3 py-2 text-right">{t('Base', 'Base')}</th>
+                    <th className="px-3 py-2 text-right">{t('Bonus', 'Bónus')}</th>
+                    <th className="px-3 py-2 text-right">{t('Round', 'Ronda')}</th>
+                    <th className="px-3 py-2 text-right">{t('Total', 'Total')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1065,7 +1176,7 @@ export default function LobbyPage() {
               </table>
             </div>
             <p className="mt-3 text-center text-xs uppercase tracking-[0.3em] text-white/60">
-              Base score + podium bonus = round points
+              {t('Base score + podium bonus = round points', 'Pontuação base + bónus do pódio = pontos da ronda')}
             </p>
           </div>
 
@@ -1073,13 +1184,14 @@ export default function LobbyPage() {
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="text-xs uppercase tracking-[0.4em] text-white/60">
-                  Ready Check
+                  {t('Ready Check', 'Prontos?')}
                 </p>
                 <p className="text-2xl font-bold text-white">
-                  {Object.keys(lobby.readyPlayers || {}).length} / {lobby.players.length} ready
+                  {t('Ready', 'Prontos')} {Object.keys(lobby.readyPlayers || {}).length} / {lobby.players.length}
                 </p>
                 <p className="text-xs uppercase tracking-[0.3em] text-white/50">
-                  Auto-start in {Math.floor(readyTimeout / 60)}:{String(readyTimeout % 60).padStart(2, '0')}
+                  {t('Auto-start in', 'Começa automaticamente em')}{' '}
+                  {Math.floor(readyTimeout / 60)}:{String(readyTimeout % 60).padStart(2, '0')}
                 </p>
               </div>
               {!isReady ? (
@@ -1089,12 +1201,12 @@ export default function LobbyPage() {
                 >
                   <Sparkles className="h-4 w-4" />
                   {roundIndex + 1 === totalRounds
-                    ? 'Reveal Final Results'
-                    : 'Ready for Next Round'}
+                    ? t('Reveal Final Results', 'Revelar resultados finais')
+                    : t('Ready for Next Round', 'Pronto para a próxima ronda')}
                 </button>
               ) : (
                 <div className="rounded-full border border-lenka-teal px-6 py-3 text-sm font-semibold text-lenka-teal">
-                  Waiting for others...
+                  {t('Waiting for others...', 'À espera dos restantes...')}
                 </div>
               )}
             </div>
@@ -1118,7 +1230,7 @@ export default function LobbyPage() {
           </div>
         </div>
         <div className="mt-6">
-          <SafeExitButton onClick={handleSafeReturn} />
+          <SafeExitButton onClick={handleSafeReturn} label={t('Exit to Main Menu', 'Voltar ao menu principal')} />
         </div>
       </StageBackground>
     );
@@ -1127,15 +1239,15 @@ export default function LobbyPage() {
   // Game finished screen (CHECK BEFORE currentProduct to prevent showing guess screen)
   if (lobby.status === 'finished' && finalLeaderboard) {
     return (
-      <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-4xl">
+      <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-4xl" languageToggle={languageToggle}>
         {wheelOverlay}
         <LobbyCodeBadge code={lobby.code} onCopy={copyLobbyCode} />
         <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center shadow-lenka-card backdrop-blur">
           <div className="flex flex-col items-center gap-3">
             <Trophy className="h-16 w-16 text-lenka-gold drop-shadow-[0_0_25px_rgba(255,215,111,0.6)]" />
-            <h1 className="text-4xl font-extrabold text-white">Lenka Grand Finale</h1>
+            <h1 className="text-4xl font-extrabold text-white">{t('Lenka Grand Finale', 'Grande final Lenka')}</h1>
             <p className="text-sm uppercase tracking-[0.4em] text-white/60">
-              Thanks for playing!
+              {t('Thanks for playing!', 'Obrigado por jogares!')}
             </p>
           </div>
 
@@ -1171,7 +1283,7 @@ export default function LobbyPage() {
                     : 'border-lenka-gold text-white hover:bg-lenka-gold/10'
                 }`}
               >
-                {isResetting ? 'Resetting...' : 'Play Another Show'}
+                {isResetting ? t('Resetting...', 'A reiniciar...') : t('Play Another Show', 'Jogar novamente')}
               </button>
             )}
             <button
@@ -1183,7 +1295,7 @@ export default function LobbyPage() {
                   : 'border-white/30 text-white hover:bg-white/10'
               }`}
             >
-              {isLeaving ? 'Leaving...' : 'Exit to Lobby'}
+              {isLeaving ? t('Leaving...', 'A sair...') : t('Exit to Lobby', 'Sair para o lobby')}
             </button>
           </div>
         </div>
@@ -1194,7 +1306,7 @@ export default function LobbyPage() {
   // Playing - Guessing phase
   if (currentProduct) {
     return (
-      <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl">
+      <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl" languageToggle={languageToggle}>
         {wheelOverlay}
         <LobbyCodeBadge code={lobby.code} onCopy={copyLobbyCode} />
         <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
@@ -1202,9 +1314,13 @@ export default function LobbyPage() {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-xs uppercase tracking-[0.4em] text-white/60">
-                  Round {roundIndex + 1} / {totalRounds}
+                  {language === 'pt'
+                    ? `Ronda ${roundIndex + 1} / ${totalRounds}`
+                    : `Round ${roundIndex + 1} / ${totalRounds}`}
                 </p>
-                <h2 className="text-3xl font-bold text-white">Guess that price!</h2>
+                <h2 className="text-3xl font-bold text-white">
+                  {t('Guess that price!', 'Adivinha esse preço!')}
+                </h2>
               </div>
               <div className={`flex items-center gap-3 rounded-2xl border px-4 py-2 ${
                 timeLeft <= 5 ? 'border-lenka-pink text-lenka-pink' : 'border-white/20 text-white'
@@ -1216,11 +1332,11 @@ export default function LobbyPage() {
 
             <div className="mt-6 grid gap-6 md:grid-cols-[1fr,0.9fr]">
               <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                <p className="text-xs uppercase tracking-[0.4em] text-white/60">Product</p>
+                <p className="text-xs uppercase tracking-[0.4em] text-white/60">{t('Product', 'Produto')}</p>
                 <h3 className="mt-2 text-2xl font-bold text-white">{currentProduct.name}</h3>
                 {currentProduct.store && (
                   <p className="text-sm font-semibold text-white/80">
-                    Store: {currentProduct.store}
+                    {t('Store', 'Loja')}: {currentProduct.store}
                   </p>
                 )}
                 {currentProduct.description && (
@@ -1246,7 +1362,9 @@ export default function LobbyPage() {
               )}
               <div className="flex flex-col gap-3 sm:flex-row">
                 <div className="flex-1 rounded-2xl border border-white/15 bg-white/5 px-4 py-3">
-                  <label className="text-xs uppercase tracking-[0.4em] text-white/50">Your Guess (€)</label>
+                  <label className="text-xs uppercase tracking-[0.4em] text-white/50">
+                    {t('Your Guess (€)', 'O teu palpite (€)')}
+                  </label>
                   <input
                     type="number"
                     value={guess}
@@ -1267,12 +1385,12 @@ export default function LobbyPage() {
                       : 'bg-gradient-to-r from-lenka-gold to-lenka-pink hover:scale-[1.01]'
                   }`}
                 >
-                  {hasSubmitted ? 'Submitted' : 'Lock Guess'}
+                  {hasSubmitted ? t('Submitted', 'Enviado') : t('Lock Guess', 'Bloquear palpite')}
                 </button>
               </div>
               {hasSubmitted && (
                 <p className="text-center text-sm uppercase tracking-[0.3em] text-lenka-teal">
-                  Guess sent! Waiting for the others...
+                  {t('Guess sent! Waiting for the others...', 'Palpite enviado! A aguardar pelos restantes...')}
                 </p>
               )}
             </div>
@@ -1281,8 +1399,10 @@ export default function LobbyPage() {
           <div className="space-y-6">
             <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-lenka-card backdrop-blur">
               <div className="flex items-center justify-between">
-                <p className="text-xs uppercase tracking-[0.4em] text-white/60">Contestants</p>
-                <span className="text-xs text-white/60">Submissions update live</span>
+                <p className="text-xs uppercase tracking-[0.4em] text-white/60">{t('Contestants', 'Concorrentes')}</p>
+                <span className="text-xs text-white/60">
+                  {t('Submissions update live', 'Envios atualizados em tempo real')}
+                </span>
               </div>
               <div className="mt-3 space-y-2">
                 {lobby.players.map((player) => (
@@ -1305,7 +1425,7 @@ export default function LobbyPage() {
             </div>
 
             <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-lenka-card backdrop-blur">
-              <p className="text-xs uppercase tracking-[0.4em] text-white/60">Leaderboard</p>
+              <p className="text-xs uppercase tracking-[0.4em] text-white/60">{t('Leaderboard', 'Classificação')}</p>
               <div className="mt-3 space-y-2">
                 {[...lobby.players]
                   .sort((a, b) => b.score - a.score)
@@ -1333,7 +1453,7 @@ export default function LobbyPage() {
                 isLeaving ? 'cursor-not-allowed border-white/20 text-white/40' : 'border-white/30 text-white hover:bg-white/10'
               }`}
             >
-              {isLeaving ? 'Leaving...' : 'Leave Show'}
+              {isLeaving ? t('Leaving...', 'A sair...') : t('Leave Show', 'Sair do show')}
             </button>
           </div>
         </div>
@@ -1344,13 +1464,13 @@ export default function LobbyPage() {
   // Waiting screen (default)
   if (lobby.status === 'waiting') {
     return (
-      <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl">
+      <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl" languageToggle={languageToggle}>
         {wheelOverlay}
         <div className="grid gap-6 lg:grid-cols-[1.1fr,0.9fr]">
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lenka-card backdrop-blur">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-xs uppercase tracking-[0.4em] text-white/60">Lobby Code</p>
+                <p className="text-xs uppercase tracking-[0.4em] text-white/60">{t('Lobby Code', 'Código do lobby')}</p>
                 <div className="mt-1 inline-flex items-center gap-3 rounded-2xl border border-white/20 bg-white/5 px-4 py-2 font-mono text-3xl font-black tracking-[0.3em]">
                   {lobby.code}
                   <button
@@ -1362,20 +1482,86 @@ export default function LobbyPage() {
                 </div>
               </div>
               <div className="rounded-2xl border border-white/15 bg-white/5 px-4 py-2 text-center">
-                <p className="text-xs uppercase tracking-[0.4em] text-white/60">Rounds</p>
+                <p className="text-xs uppercase tracking-[0.4em] text-white/60">{t('Rounds', 'Rondas')}</p>
                 <p className="text-2xl font-black text-white">{lobby.roundsTotal}</p>
               </div>
             </div>
 
-            <p className="mt-4 text-sm text-white/70">Invite your friends, set the vibe, and get ready to spin.</p>
+            <p className="mt-4 text-sm text-white/70">
+              {t('Invite your friends, set the vibe, and get ready to spin.', 'Convida os amigos, prepara o ambiente e fica pronto para rodar.')}
+            </p>
 
-            {error && (
-              <div className="mt-4 rounded-2xl border border-lenka-pink/50 bg-lenka-pink/10 px-4 py-3 text-sm font-semibold text-lenka-pink">
-                {error}
+            <div className="mt-6 space-y-4">
+              <div className="rounded-2xl border border-white/15 bg-white/5 px-4 py-3">
+                <div className="flex items-center justify-between text-xs uppercase tracking-[0.3em] text-white/60">
+                  <span>{t('Game settings', 'Definições do jogo')}</span>
+                  <span>
+                    {currentPlayer?.isHost
+                      ? t('Host controls', 'Controlado pelo anfitrião')
+                      : t('Host is selecting', 'O anfitrião está a escolher')}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-white/80">
+                  {t('Rounds', 'Rondas')}: <span className="font-semibold text-white">{lobby.roundsTotal}</span> •{' '}
+                  {t('Store', 'Loja')}: <span className="font-semibold text-white">{getProductSourceLabel(lobby.productSource)}</span>
+                </p>
+                {currentPlayer?.isHost && (
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.3em] text-white/60">
+                        {t('Pick the number of rounds', 'Escolhe o número de rondas')}
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {roundOptions.map((option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            onClick={() => handleLobbySettingsChange({ roundsTotal: option })}
+                            className={`rounded-full border px-4 py-2 text-sm font-semibold ${
+                              lobby.roundsTotal === option
+                                ? 'border-lenka-gold bg-lenka-gold/20 text-lenka-gold'
+                                : 'border-white/15 bg-white/5 text-white/70 hover:text-white'
+                            }`}
+                          >
+                            {language === 'pt' ? `${option} rondas` : `${option} rounds`}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.3em] text-white/60">
+                        {t('Product source', 'Fonte de produtos')}
+                      </p>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        {productSourceOptions.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => handleLobbySettingsChange({ productSource: option.value })}
+                            className={`rounded-2xl border p-3 text-left text-sm ${
+                              lobby.productSource === option.value
+                                ? 'border-lenka-teal bg-lenka-teal/15 text-white'
+                                : 'border-white/15 bg-white/5 text-white/70 hover:text-white'
+                            }`}
+                          >
+                            <p className="font-semibold text-white">{language === 'pt' ? option.label.pt : option.label.en}</p>
+                            <p className="text-xs text-white/70">
+                              {language === 'pt' ? option.description.pt : option.description.en}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
 
-            <div className="mt-6 space-y-3">
+              {error && (
+                <div className="rounded-2xl border border-lenka-pink/50 bg-lenka-pink/10 px-4 py-3 text-sm font-semibold text-lenka-pink">
+                  {error}
+                </div>
+              )}
+
               {currentPlayer?.isHost ? (
                 <button
                   onClick={handleStartGame}
@@ -1390,7 +1576,7 @@ export default function LobbyPage() {
                 </button>
               ) : (
                 <div className="rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-center text-sm text-white/70">
-                  Waiting for the host to spin the wheel...
+                  {t('Waiting for the host to spin the wheel...', 'À espera que o anfitrião rode a roda...')}
                 </div>
               )}
 
@@ -1401,7 +1587,7 @@ export default function LobbyPage() {
                   isLeaving ? 'cursor-not-allowed border-white/20 text-white/40' : 'border-white/30 text-white hover:bg-white/10'
                 }`}
               >
-                {isLeaving ? 'Leaving...' : 'Leave Lobby'}
+                {isLeaving ? t('Leaving...', 'A sair...') : t('Leave Lobby', 'Sair do lobby')}
               </button>
             </div>
           </div>
@@ -1409,7 +1595,9 @@ export default function LobbyPage() {
           <div className="space-y-4">
             <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-lenka-card backdrop-blur">
               <div className="flex items-center justify-between">
-                <p className="text-xs uppercase tracking-[0.4em] text-white/60">Contestants ({lobby.players.length})</p>
+                <p className="text-xs uppercase tracking-[0.4em] text-white/60">
+                  {t('Contestants', 'Concorrentes')} ({lobby.players.length})
+                </p>
                 <Users className="h-5 w-5 text-lenka-gold" />
               </div>
               <div className="mt-3 space-y-2">
@@ -1433,17 +1621,19 @@ export default function LobbyPage() {
             </div>
 
             <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-lenka-card backdrop-blur">
-              <p className="text-xs uppercase tracking-[0.4em] text-white/60">Showtime Pro Tips</p>
+              <p className="text-xs uppercase tracking-[0.4em] text-white/60">
+                {t('Showtime Pro Tips', 'Dicas do espetáculo')}
+              </p>
               <ul className="mt-3 space-y-2 text-sm text-white/70">
-                <li>• Wheel decides when the show starts. Buckle up!</li>
-                <li>• Bonus points reward the boldest guesses.</li>
-                <li>• Hover buttons for a tick—Lenka hears you.</li>
+                <li>• {t('Wheel decides when the show starts. Buckle up!', 'A roda decide quando começa. Aperta o cinto!')}</li>
+                <li>• {t('Bonus points reward the boldest guesses.', 'Os bónus recompensam os palpites mais ousados.')}</li>
+                <li>• {t('Hover buttons for a tick—Lenka hears you.', 'Passa o rato nos botões — a Lenka ouve-te.')}</li>
               </ul>
             </div>
           </div>
         </div>
         <div className="mt-6">
-          <SafeExitButton onClick={handleSafeReturn} />
+          <SafeExitButton onClick={handleSafeReturn} label={t('Exit to Main Menu', 'Voltar ao menu principal')} />
         </div>
       </StageBackground>
     );

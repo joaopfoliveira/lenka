@@ -93,6 +93,15 @@ export function leaveLobby(code: string) {
   socket.emit('lobby:leave', { code });
 }
 
+export function updateLobbySettings(
+  code: string,
+  roundsTotal: number,
+  productSource: 'kuantokusta' | 'temu' | 'decathlon' | 'mixed'
+) {
+  const socket = getSocket();
+  socket.emit('lobby:update-settings', { code, roundsTotal, productSource });
+}
+
 export function kickPlayer(code: string, targetPlayerId: string) {
   const socket = getSocket();
   socket.emit('player:kick', { code, targetPlayerId });

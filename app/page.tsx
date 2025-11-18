@@ -9,25 +9,25 @@ import {
   Gamepad2,
   Sparkles,
   Users,
-  TimerReset,
   Coins,
 } from 'lucide-react';
 import Logo from './components/Logo';
 import { useSfx } from './components/sfx/SfxProvider';
 import { ensurePlayerClientId, resolvePlayerName } from './utils/playerIdentity';
+import { useLanguage } from './hooks/useLanguage';
 
 export default function Home() {
   const router = useRouter();
   const [mode, setMode] = useState<'menu' | 'create' | 'join'>('menu');
   const [playerName, setPlayerName] = useState('');
   const [lobbyCode, setLobbyCode] = useState('');
-  const [roundsTotal, setRoundsTotal] = useState(5);
-  const [productSource, setProductSource] = useState<
-    'kuantokusta' | 'temu' | 'mixed'
-  >('mixed');
   const [error, setError] = useState('');
   const { playTick, playDing } = useSfx();
   const [isLaunching, setIsLaunching] = useState(false);
+  const { language, toggleLanguage } = useLanguage();
+  const DEFAULT_ROUNDS = 5;
+  const DEFAULT_SOURCE: 'kuantokusta' | 'temu' | 'decathlon' | 'mixed' = 'mixed';
+  const t = (en: string, pt: string) => (language === 'pt' ? pt : en);
 
   useEffect(() => {
     router.prefetch('/lobby/__create__');
@@ -39,8 +39,8 @@ export default function Home() {
     const { finalName } = resolvePlayerName(playerName, setPlayerName);
     localStorage.setItem('playerName', finalName);
     localStorage.setItem('createLobby', 'true');
-    localStorage.setItem('roundsTotal', roundsTotal.toString());
-    localStorage.setItem('productSource', productSource);
+    localStorage.setItem('roundsTotal', DEFAULT_ROUNDS.toString());
+    localStorage.setItem('productSource', DEFAULT_SOURCE);
     if (typeof window !== 'undefined') {
       window.sessionStorage.removeItem('lenka:lastLobbyCode');
     }
@@ -53,7 +53,7 @@ export default function Home() {
   const handleJoinLobby = () => {
     const { finalName } = resolvePlayerName(playerName, setPlayerName);
     if (!lobbyCode.trim()) {
-      setError('Please enter the lobby code');
+      setError(t('Please enter the lobby code', 'Introduz o código do lobby'));
       return;
     }
 
@@ -63,39 +63,26 @@ export default function Home() {
     router.push(`/lobby/${lobbyCode.toUpperCase()}`);
   };
 
-  const productSources = [
-    {
-      value: 'kuantokusta' as const,
-      title: 'KuantoKusta',
-      subtitle: 'Portuguese stores',
-      badge: '🇵🇹',
-    },
-    {
-      value: 'temu' as const,
-      title: 'Temu',
-      subtitle: 'International finds',
-      badge: '🌍',
-    },
-    {
-      value: 'mixed' as const,
-      title: 'Mixed',
-      subtitle: 'Wild variety',
-      badge: '🎲',
-    },
-  ];
-
   return (
     <div className="relative min-h-screen overflow-hidden bg-lenka-stage px-4 py-10 text-white">
+      <div className="pointer-events-auto absolute right-24 top-4 z-40">
+        <button
+          onClick={toggleLanguage}
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-white/30 bg-white/10 text-xl text-white transition hover:bg-white/20"
+        >
+          {language === 'en' ? '🇵🇹' : '🇬🇧'}
+        </button>
+      </div>
       {isLaunching && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/85 text-center text-white backdrop-blur-sm">
           <p className="text-sm uppercase tracking-[0.4em] text-white/60">
-            Showtime prep
+            {t('Showtime prep', 'A preparar o espetáculo')}
           </p>
           <p className="mt-2 text-3xl font-bold text-lenka-gold">
-            Opening your private showcase…
+            {t('Opening your private showcase…', 'A abrir o teu showcase privado…')}
           </p>
           <p className="mt-2 text-white/70">
-            Hang tight while Lenka polishes the prizes.
+            {t('Hang tight while Lenka polishes the prizes.', 'Espera enquanto a Lenka prepara os prémios.')}
           </p>
         </div>
       )}
@@ -122,38 +109,44 @@ export default function Home() {
             </div>
             <div>
               <p className="text-sm uppercase tracking-[0.4em] text-white/80">
-                Welcome to Lenka
+                {t('Welcome to Lenka', 'Bem-vindo à Lenka')}
               </p>
               <h1 className="text-4xl font-bold leading-tight text-white">
-                Guess the price, steal the spotlight.
+                {t('Guess the price, steal the spotlight.', 'Adivinha o preço e conquista os holofotes.')}
               </h1>
             </div>
             <p className="text-base text-lenka-pearl/80">
-              Create a lobby for your crew or join an existing show. Lenka keeps
-              every round fast, loud, and totally unpredictable.
+              {t(
+                'Create a lobby for your crew or join an existing show. Lenka keeps every round fast, loud, and totally unpredictable.',
+                'Cria um lobby para a tua equipa ou junta-te a um jogo existente. A Lenka mantém cada ronda rápida, barulhenta e imprevisível.'
+              )}
             </p>
             <div className="grid grid-cols-2 gap-4 text-sm text-lenka-pearl">
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                 <div className="flex items-center gap-2 text-white">
                   <Users className="h-5 w-5 text-lenka-gold" />
                   <span className="font-semibold uppercase tracking-wide">
-                    Players
+                    {t('Players', 'Jogadores')}
                   </span>
                 </div>
-                <p className="mt-2 text-2xl font-bold text-white">2-8 friends</p>
-                <p className="text-xs text-white/70">Party mode recommended</p>
+                <p className="mt-2 text-2xl font-bold text-white">{t('2-8 friends', '2-8 amigos')}</p>
+                <p className="text-xs text-white/70">
+                  {t('Party mode recommended', 'Modo festa recomendado')}
+                </p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                 <div className="flex items-center gap-2 text-white">
-                  <TimerReset className="h-5 w-5 text-lenka-teal" />
+                  <Sparkles className="h-5 w-5 text-lenka-teal" />
                   <span className="font-semibold uppercase tracking-wide">
-                    Rounds
+                    {t('Settings', 'Configurações')}
                   </span>
                 </div>
                 <p className="mt-2 text-2xl font-bold text-white">
-                  {roundsTotal} rounds
+                  {t('Pick inside the lobby', 'Escolhe dentro do lobby')}
                 </p>
-                <p className="text-xs text-white/70">You call the pace</p>
+                <p className="text-xs text-white/70">
+                  {t('Set rounds and store right before starting.', 'Define rondas e loja antes de começares o jogo.')}
+                </p>
               </div>
             </div>
           </div>
@@ -163,14 +156,14 @@ export default function Home() {
           <div className="mb-6 flex items-center justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.4em] text-white/60">
-                Lobby Control
+                {t('Lobby Control', 'Gestão do Lobby')}
               </p>
               <h2 className="text-3xl font-extrabold text-lenka-gold">
                 {mode === 'menu'
-                  ? 'Choose Your Move'
+                  ? t('Choose Your Move', 'Escolhe a jogada')
                   : mode === 'create'
-                  ? 'Create a Showcase'
-                  : 'Join a Lobby'}
+                  ? t('Create a Showcase', 'Cria um espetáculo')
+                  : t('Join a Lobby', 'Entra num lobby')}
               </h2>
             </div>
             {mode !== 'menu' && (
@@ -183,7 +176,7 @@ export default function Home() {
                 }}
               >
                 <ArrowLeft className="h-4 w-4" />
-                Back
+                {t('Back', 'Voltar')}
               </button>
             )}
           </div>
@@ -202,13 +195,13 @@ export default function Home() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xs uppercase tracking-[0.3em] text-white/70">
-                        Host Mode
+                        {t('Host Mode', 'Modo anfitrião')}
                       </p>
                       <p className="mt-1 text-2xl font-bold text-white">
-                        Create Lobby
+                        {t('Create Lobby', 'Criar lobby')}
                       </p>
                       <p className="text-sm text-white/80">
-                        Pick rounds, invite friends, rule the prices.
+                        {t('Pick rounds, invite friends, rule the prices.', 'Escolhe rondas, convida amigos e dita os preços.')}
                       </p>
                     </div>
                     <div className="rounded-2xl bg-white/15 p-4">
@@ -228,11 +221,11 @@ export default function Home() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xs uppercase tracking-[0.3em] text-white/70">
-                        Contestant
+                        {t('Contestant', 'Concorrente')}
                       </p>
-                      <p className="mt-1 text-2xl font-bold">Join Lobby</p>
+                      <p className="mt-1 text-2xl font-bold">{t('Join Lobby', 'Entrar no lobby')}</p>
                       <p className="text-sm text-white/80">
-                        Drop the secret code and take the stage.
+                        {t('Drop the secret code and take the stage.', 'Introduce o código e sobe ao palco.')}
                       </p>
                     </div>
                     <div className="rounded-2xl bg-white/15 p-4">
@@ -247,7 +240,7 @@ export default function Home() {
               <div className="space-y-6">
                 <div>
                   <label className="text-sm font-semibold uppercase tracking-[0.3em] text-white/70">
-                    Your Name
+                    {t('Your Name', 'O teu nome')}
                   </label>
                   <div className="mt-2 rounded-2xl border border-white/20 bg-white/5 px-4 py-3">
                     <input
@@ -257,68 +250,18 @@ export default function Home() {
                         setPlayerName(e.target.value);
                         setError('');
                       }}
-                      placeholder="Show host name"
+                      placeholder={t('Show host name', 'Nome do anfitrião')}
                       className="w-full bg-transparent text-lg font-semibold text-white placeholder:text-white/40 focus:outline-none"
                       maxLength={20}
                     />
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-sm font-semibold uppercase tracking-[0.3em] text-white/70">
-                    Rounds
-                  </label>
-                  <div className="mt-3 grid grid-cols-3 gap-3">
-                    {[5, 8, 10].map((num) => (
-                      <button
-                        key={num}
-                        onClick={() => {
-                          setRoundsTotal(num);
-                          playTick();
-                        }}
-                        className={`rounded-2xl border p-3 text-center text-2xl font-bold transition-colors duration-150 ${
-                          roundsTotal === num
-                            ? 'border-lenka-gold bg-lenka-gold/20 text-lenka-gold shadow-lenka-glow'
-                            : 'border-white/10 bg-white/5'
-                        }`}
-                      >
-                        {num}
-                        <span className="block text-xs uppercase tracking-wide text-white/60">
-                          rounds
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-sm font-semibold uppercase tracking-[0.3em] text-white/70">
-                    Product Source
-                  </label>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                    {productSources.map((source) => (
-                      <button
-                        key={source.value}
-                        onClick={() => {
-                          setProductSource(source.value);
-                          playTick();
-                        }}
-                        className={`rounded-2xl border p-4 text-left transition-colors duration-150 ${
-                          productSource === source.value
-                            ? 'border-lenka-teal bg-lenka-teal/15 text-white shadow-lenka-card'
-                            : 'border-white/10 bg-white/5 text-white/80'
-                        }`}
-                      >
-                        <div className="text-3xl">{source.badge}</div>
-                        <div className="mt-2 text-lg font-semibold">
-                          {source.title}
-                        </div>
-                        <p className="text-xs uppercase tracking-widest text-white/60">
-                          {source.subtitle}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80">
+                  {t(
+                    'Adjust rounds and store (KuantoKusta, Temu, Decathlon or mixed) directly inside the lobby before starting the match.',
+                    'Ajusta o número de rondas e a loja (KuantoKusta, Temu, Decathlon ou mistura) diretamente no lobby, antes de começar o jogo.'
+                  )}
                 </div>
 
                 {error && (
@@ -328,18 +271,18 @@ export default function Home() {
                 )}
 
                 <div className="space-y-3 pt-2">
-                  <button
-                    onClick={handleCreateLobby}
-                    disabled={isLaunching}
-                    className={`flex w-full items-center justify-between rounded-2xl border px-6 py-4 text-lg font-bold text-white shadow-lenka-glow transition-transform duration-150 ${
-                      isLaunching
-                        ? 'cursor-not-allowed border-white/20 bg-white/10 text-white/40'
-                        : 'border-lenka-gold bg-gradient-to-r from-lenka-gold/80 to-lenka-pink/80 hover:scale-[1.005]'
-                    }`}
-                  >
-                    <span>Launch The Lobby</span>
-                    <Sparkles className="h-6 w-6" />
-                  </button>
+                <button
+                  onClick={handleCreateLobby}
+                  disabled={isLaunching}
+                  className={`flex w-full items-center justify-between rounded-2xl border px-6 py-4 text-lg font-bold text-white shadow-lenka-glow transition-transform duration-150 ${
+                    isLaunching
+                      ? 'cursor-not-allowed border-white/20 bg-white/10 text-white/40'
+                      : 'border-lenka-gold bg-gradient-to-r from-lenka-gold/80 to-lenka-pink/80 hover:scale-[1.005]'
+                  }`}
+                >
+                  <span>{t('Launch The Lobby', 'Lançar o lobby')}</span>
+                  <Sparkles className="h-6 w-6" />
+                </button>
                 </div>
               </div>
             )}
@@ -348,7 +291,7 @@ export default function Home() {
               <div className="space-y-6">
                 <div>
                   <label className="text-sm font-semibold uppercase tracking-[0.3em] text-white/70">
-                    Your Name
+                    {t('Your Name', 'O teu nome')}
                   </label>
                   <div className="mt-2 rounded-2xl border border-white/20 bg-white/5 px-4 py-3">
                     <input
@@ -358,7 +301,7 @@ export default function Home() {
                         setPlayerName(e.target.value);
                         setError('');
                       }}
-                      placeholder="Contestant name"
+                      placeholder={t('Contestant name', 'Nome do concorrente')}
                       className="w-full bg-transparent text-lg font-semibold text-white placeholder:text-white/40 focus:outline-none"
                       maxLength={20}
                     />
@@ -367,7 +310,7 @@ export default function Home() {
 
                 <div>
                   <label className="text-sm font-semibold uppercase tracking-[0.3em] text-white/70">
-                    Lobby Code
+                    {t('Lobby Code', 'Código do lobby')}
                   </label>
                   <div className="mt-2 rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-center">
                     <input
@@ -394,7 +337,7 @@ export default function Home() {
                   onClick={handleJoinLobby}
                   className="flex w-full items-center justify-between rounded-2xl border border-white/30 bg-gradient-to-r from-lenka-electric/80 to-lenka-teal/70 px-6 py-4 text-lg font-bold text-white shadow-lenka-card transition-transform duration-150 hover:scale-[1.005]"
                 >
-                  <span>Join The Show</span>
+                  <span>{t('Join The Show', 'Entrar no show')}</span>
                   <Coins className="h-6 w-6" />
                 </button>
               </div>

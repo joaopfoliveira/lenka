@@ -6,15 +6,18 @@
 import { ProductFetcher } from '../productTypes';
 import { SupermarketFetcher } from './supermarket.fetcher';
 import { AmazonFetcher } from './amazon.fetcher';
+import { DecathlonFetcher } from './decathlon.fetcher';
 
 // Register all available fetchers
 export const fetchers: ProductFetcher[] = [
   new SupermarketFetcher(),
   new AmazonFetcher(),
+  new DecathlonFetcher(),
 ];
 
 export { SupermarketFetcher } from './supermarket.fetcher';
 export { AmazonFetcher } from './amazon.fetcher';
+export { DecathlonFetcher } from './decathlon.fetcher';
 
 // Helper to get fetcher by source
 export function getFetcherBySource(source: string): ProductFetcher | undefined {
@@ -32,4 +35,3 @@ export async function testAllFetchers(): Promise<Record<string, boolean>> {
   
   return results;
 }
-

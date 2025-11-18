@@ -152,6 +152,29 @@ app.prepare().then(() => {
       }
     });
 
+    socket.on('lobby:update-settings', ({ code, roundsTotal, productSource }) => {
+      try {
+        const lobby = gameManager.getLobbyState(code);
+        if (!lobby) {
+          socket.emit('error', { message: 'Lobby not found' });
+          return;
+        }
+
+        if (lobby.hostId !== socket.id) {
+          socket.emit('error', { message: 'Only the host can update settings' });
+          return;
+        }
+
+        const updated = gameManager.updateLobbySettings(code, roundsTotal, productSource);
+        if (updated) {
+          io.to(code).emit('lobby:state', updated);
+        }
+      } catch (error) {
+        console.error('❌ Lobby settings update error:', error);
+        socket.emit('error', { message: 'Failed to update lobby settings' });
+      }
+    });
+
     // Join lobby
     socket.on('lobby:join', ({ code, playerName, clientId }) => {
       console.log('📝 Join lobby request:', code, 'player:', playerName);

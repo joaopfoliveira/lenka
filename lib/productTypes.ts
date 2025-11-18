@@ -8,6 +8,7 @@ export type ProductSource =
   | 'supermarket'   // SuperSave API (Continente, Pingo Doce, Auchan)
   | 'kuantokusta'   // KuantoKusta API (multiple stores)
   | 'temu'          // Temu marketplace
+  | 'decathlon'     // Decathlon sports catalog
   | 'amazon'        // Amazon products
   | 'marketplace'   // Generic marketplace
   | 'automotive'    // Cars, motorcycles
@@ -190,4 +191,3 @@ export function filterProducts(
     return true;
   });
 }
-
