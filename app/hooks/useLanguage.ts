@@ -30,8 +30,8 @@ export function useLanguage() {
   }, []);
 
   const toggleLanguage = useCallback(() => {
-    setLanguage(prevLang => (prevLang === 'en' ? 'pt' : 'en'));
-  }, [setLanguage]);
+    setLanguage(language === 'en' ? 'pt' : 'en');
+  }, [language, setLanguage]);
 
   return { language, setLanguage, toggleLanguage };
 }
