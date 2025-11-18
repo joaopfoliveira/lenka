@@ -242,7 +242,7 @@ function normalizeUrl(url?: string): string | undefined {
 }
 
 function convertProduct(raw: DecathlonProduct, sport: SportListing): Product | null {
-  const variant = raw.models?.[0] || (raw as any);
+  const variant = (raw as DecathlonProduct & { models?: Array<Partial<DecathlonProduct> | null | undefined> })?.models?.[0] || (raw as any);
   const rawId = variant?.id || variant?.skuId || raw.productId || raw.objectID || raw.id || raw.reference || raw.slug;
   const name = variant?.label || raw.title || raw.name || raw.shortLabel;
 
@@ -302,7 +302,7 @@ async function fetchProductsForSport(sport: SportListing, size: number): Promise
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
       Accept: 'application/json',
       'Accept-Language': 'pt-PT,pt;q=0.9,en;q=0.8',
-      Referer: `${DECATHLON_HOST}/todos-os-desportos/${sport.slug}`,
+      Referer: `${DECATHLON_HOST}${sport.path}`,
     },
   });
 
