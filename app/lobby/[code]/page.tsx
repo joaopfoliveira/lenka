@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useTransition, type ReactNode } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   Clock3,
   Copy,
@@ -35,6 +35,8 @@ import {
   onReadyTimeout,
   onError,
   getSocket,
+  kickPlayer,
+  onPlayerKicked,
 } from '@/lib/socketClient';
 import { Lobby, Player } from '@/lib/gameManager';
 import { Product } from '@/data/products';
@@ -122,6 +124,37 @@ function StageBackground({
       </div>
       <div className={`relative z-10 mx-auto ${maxWidth}`}>{children}</div>
     </div>
+  );
+}
+
+function LobbyCodeBadge({
+  code,
+  onCopy,
+}: {
+  code: string;
+  onCopy: () => void;
+}) {
+  return (
+    <div className="mb-4 flex justify-center sm:justify-end">
+      <button
+        onClick={onCopy}
+        className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/10"
+      >
+        <span className="font-mono tracking-[0.3em]">{code}</span>
+        <Copy className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
+function SafeExitButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full rounded-full border border-white/30 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+    >
+      Exit to Main Menu
+    </button>
   );
 }
 
@@ -263,8 +296,7 @@ export default function LobbyPage() {
     roundIndex: number;
     totalRounds: number;
   } | null>(null);
-  const prefersReducedMotion = useReducedMotion();
-  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [kickingPlayerId, setKickingPlayerId] = useState<string | null>(null);
   const [, startLobbyTransition] = useTransition();
   
   const mountedRef = useRef(false);
@@ -277,22 +309,19 @@ export default function LobbyPage() {
   const playerNameRef = useRef<string>('');
   const clientIdRef = useRef<string>('');
   const activeLobbyCodeRef = useRef<string | null>(code !== '__create__' ? code : null);
+  const kickingPlayerIdRef = useRef<string | null>(null);
+  const safeReturnRef = useRef<() => void>(() => {});
   const { playTick, playDing, playBuzzer, playFanfare, playApplause } = useSfx();
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mediaQuery = window.matchMedia('(max-width: 768px)');
-    const updateViewport = () => setIsMobileViewport(mediaQuery.matches);
-    updateViewport();
-    mediaQuery.addEventListener('change', updateViewport);
-    return () => mediaQuery.removeEventListener('change', updateViewport);
-  }, []);
-
-  const disableHeavyEffects = prefersReducedMotion || isMobileViewport;
+  const disableHeavyEffects = true;
 
   useEffect(() => {
     wheelVisibleRef.current = isWheelVisible;
   }, [isWheelVisible]);
+
+  useEffect(() => {
+    kickingPlayerIdRef.current = kickingPlayerId;
+  }, [kickingPlayerId]);
 
   const revealProduct = (payload: {
     product: Product;
@@ -372,7 +401,9 @@ export default function LobbyPage() {
   };
 
   useEffect(() => {
-    if (code === '__create__' && typeof window !== 'undefined') {
+    const isCreatingNewLobby =
+      typeof window !== 'undefined' && localStorage.getItem('createLobby') === 'true';
+    if (code === '__create__' && typeof window !== 'undefined' && !isCreatingNewLobby) {
       const lastCode = window.sessionStorage.getItem('lenka:lastLobbyCode');
       if (lastCode) {
         router.replace(`/lobby/${lastCode}`);
@@ -438,6 +469,11 @@ export default function LobbyPage() {
         const player = lobbyData.players.find((p: Player) => p.id === socket.id);
         if (player) {
           setCurrentPlayer(player);
+        }
+        const lastKicked = kickingPlayerIdRef.current;
+        if (lastKicked && !lobbyData.players.some(p => p.id === lastKicked)) {
+          kickingPlayerIdRef.current = null;
+          setKickingPlayerId(null);
         }
         previousLobbyStatusRef.current = lobbyData.status;
       });
@@ -526,6 +562,15 @@ export default function LobbyPage() {
       });
     });
 
+    const unsubPlayerKicked = onPlayerKicked(({ code: kickedCode }) => {
+      if (activeLobbyCodeRef.current && kickedCode !== activeLobbyCodeRef.current) {
+        return;
+      }
+      console.log('⛔️ You have been removed from the lobby');
+      setError('Foste removido do lobby pelo host.');
+      safeReturnRef.current();
+    });
+
     const unsubError = onError(({ message }) => {
       console.error('❌ Error received:', message);
       setError(message);
@@ -587,6 +632,7 @@ export default function LobbyPage() {
     cleanupFunctions.push(unsubRoundResults);
     cleanupFunctions.push(unsubReadyTimeout);
     cleanupFunctions.push(unsubGameEnded);
+    cleanupFunctions.push(unsubPlayerKicked);
     cleanupFunctions.push(unsubError);
 
     return () => {
@@ -709,6 +755,56 @@ export default function LobbyPage() {
     }
   };
 
+  const handleKickPlayer = (playerId: string) => {
+    if (!lobby || !currentPlayer?.isHost || kickingPlayerId) {
+      return;
+    }
+    console.log(`🥾 Kicking player ${playerId} from lobby ${lobby.code}`);
+    setKickingPlayerId(playerId);
+    kickPlayer(lobby.code, playerId);
+    addTimeout(() => setKickingPlayerId(null), 2000);
+  };
+
+  const renderKickButton = (player: Player) => {
+    if (!currentPlayer?.isHost || player.id === currentPlayer.id) {
+      return null;
+    }
+    return (
+      <button
+        onClick={() => handleKickPlayer(player.id)}
+        disabled={kickingPlayerId === player.id}
+        className="text-[10px] font-bold uppercase tracking-widest text-red-300 transition hover:text-red-200 disabled:opacity-50"
+      >
+        {kickingPlayerId === player.id ? '...' : 'Kick'}
+      </button>
+    );
+  };
+
+  const handleSafeReturn = () => {
+    console.log('🛟 Safe return triggered');
+    if (lobby) {
+      try {
+        leaveLobby(lobby.code);
+      } catch (error) {
+        console.error('Failed to send leave event during safe exit:', error);
+      }
+    }
+    clearAllTimeouts();
+    removeAllGameListeners();
+    disconnectSocket();
+    setLobby(null);
+    setCurrentProduct(null);
+    setRoundResults(null);
+    setFinalLeaderboard(null);
+    setIsReady(false);
+    setHasSubmitted(false);
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.removeItem('lenka:lastLobbyCode');
+    }
+    router.push('/');
+  };
+  safeReturnRef.current = handleSafeReturn;
+
   const handleMarkReady = () => {
     if (lobby && !isReady) {
       setIsReady(true);
@@ -825,6 +921,9 @@ export default function LobbyPage() {
             ))}
           </div>
         </div>
+        <div className="mt-6">
+          <SafeExitButton onClick={handleSafeReturn} />
+        </div>
       </StageBackground>
     );
   }
@@ -834,6 +933,7 @@ export default function LobbyPage() {
     return (
       <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl">
         {wheelOverlay}
+        <LobbyCodeBadge code={lobby.code} onCopy={copyLobbyCode} />
         <div className="space-y-6">
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lenka-card backdrop-blur">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -914,7 +1014,7 @@ export default function LobbyPage() {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-lenka-card backdrop-blur">
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-lenka-card backdrop-blur">
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-white/80">
                 <thead>
@@ -1002,17 +1102,23 @@ export default function LobbyPage() {
               {lobby.players.map((player) => (
                 <div
                   key={player.id}
-                  className={`rounded-full px-4 py-1 text-xs font-semibold ${
+                  className={`flex items-center gap-2 rounded-full px-4 py-1 text-xs font-semibold ${
                     lobby.readyPlayers?.[player.id]
                       ? 'bg-lenka-teal/30 text-lenka-teal'
                       : 'bg-white/10 text-white/70'
                   }`}
                 >
-                  {player.name} {lobby.readyPlayers?.[player.id] && '✓'}
+                  <span>
+                    {player.name} {lobby.readyPlayers?.[player.id] && '✓'}
+                  </span>
+                  {renderKickButton(player)}
                 </div>
               ))}
             </div>
           </div>
+        </div>
+        <div className="mt-6">
+          <SafeExitButton onClick={handleSafeReturn} />
         </div>
       </StageBackground>
     );
@@ -1023,6 +1129,7 @@ export default function LobbyPage() {
     return (
       <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-4xl">
         {wheelOverlay}
+        <LobbyCodeBadge code={lobby.code} onCopy={copyLobbyCode} />
         <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center shadow-lenka-card backdrop-blur">
           <div className="flex flex-col items-center gap-3">
             <Trophy className="h-16 w-16 text-lenka-gold drop-shadow-[0_0_25px_rgba(255,215,111,0.6)]" />
@@ -1089,6 +1196,7 @@ export default function LobbyPage() {
     return (
       <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl">
         {wheelOverlay}
+        <LobbyCodeBadge code={lobby.code} onCopy={copyLobbyCode} />
         <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lenka-card backdrop-blur">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1186,7 +1294,10 @@ export default function LobbyPage() {
                         : 'border-white/15 bg-white/5 text-white/70'
                     }`}
                   >
-                    <span>{player.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span>{player.name}</span>
+                      {renderKickButton(player)}
+                    </div>
                     {lobby.guesses[player.id] !== undefined && <span>✓</span>}
                   </div>
                 ))}
@@ -1311,7 +1422,10 @@ export default function LobbyPage() {
                         : 'border-white/15 bg-white/5 text-white'
                     }`}
                   >
-                    <span>{player.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span>{player.name}</span>
+                      {renderKickButton(player)}
+                    </div>
                     {player.isHost && <span className="text-xs uppercase tracking-[0.4em]">Host</span>}
                   </div>
                 ))}
@@ -1327,6 +1441,9 @@ export default function LobbyPage() {
               </ul>
             </div>
           </div>
+        </div>
+        <div className="mt-6">
+          <SafeExitButton onClick={handleSafeReturn} />
         </div>
       </StageBackground>
     );

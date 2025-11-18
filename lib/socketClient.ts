@@ -93,6 +93,11 @@ export function leaveLobby(code: string) {
   socket.emit('lobby:leave', { code });
 }
 
+export function kickPlayer(code: string, targetPlayerId: string) {
+  const socket = getSocket();
+  socket.emit('player:kick', { code, targetPlayerId });
+}
+
 export function startGame(code: string) {
   const socket = getSocket();
   console.log('🎮 Emitting game:start for lobby:', code, 'socket connected:', socket.connected);
@@ -198,4 +203,10 @@ export function onError(callback: (data: { message: string }) => void) {
   const socket = getSocket();
   socket.on('error', callback);
   return () => socket.off('error', callback);
+}
+
+export function onPlayerKicked(callback: (data: { code: string }) => void) {
+  const socket = getSocket();
+  socket.on('player:kicked', callback);
+  return () => socket.off('player:kicked', callback);
 }

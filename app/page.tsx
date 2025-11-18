@@ -41,6 +41,9 @@ export default function Home() {
     localStorage.setItem('createLobby', 'true');
     localStorage.setItem('roundsTotal', roundsTotal.toString());
     localStorage.setItem('productSource', productSource);
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.removeItem('lenka:lastLobbyCode');
+    }
     ensurePlayerClientId();
     playDing();
     setIsLaunching(true);

@@ -105,6 +105,53 @@ app.prepare().then(() => {
       }
     });
 
+    socket.on('player:kick', ({ code, targetPlayerId }) => {
+      try {
+        const lobby = gameManager.getLobbyState(code);
+        if (!lobby) {
+          socket.emit('error', { message: 'Lobby not found' });
+          return;
+        }
+
+        if (lobby.hostId !== socket.id) {
+          socket.emit('error', { message: 'Only the host can kick players' });
+          return;
+        }
+
+        if (targetPlayerId === socket.id) {
+          socket.emit('error', { message: 'Cannot kick yourself' });
+          return;
+        }
+
+        const targetPlayer = lobby.players.find(player => player.id === targetPlayerId);
+        if (!targetPlayer) {
+          socket.emit('error', { message: 'Player not found' });
+          return;
+        }
+
+        clearPendingDisconnect(targetPlayer.clientId);
+        const targetSocket = io.sockets.sockets.get(targetPlayerId);
+        if (targetSocket) {
+          targetSocket.leave(code);
+          targetSocket.emit('player:kicked', { code });
+        }
+
+        const { lobby: updatedLobby, shouldDelete, newHostId } = gameManager.leaveLobby(code, targetPlayerId);
+
+        if (shouldDelete) {
+          clearAllTimers(code);
+        } else if (updatedLobby) {
+          if (newHostId) {
+            console.log(`👑 New host after kick: ${newHostId}`);
+          }
+          io.to(code).emit('lobby:state', updatedLobby);
+        }
+      } catch (error) {
+        console.error('❌ Kick player error:', error);
+        socket.emit('error', { message: 'Failed to kick player' });
+      }
+    });
+
     // Join lobby
     socket.on('lobby:join', ({ code, playerName, clientId }) => {
       console.log('📝 Join lobby request:', code, 'player:', playerName);
@@ -135,6 +182,14 @@ app.prepare().then(() => {
           
           // Notify others about new player
           socket.to(code).emit('lobby:state', lobby);
+        }
+
+        if (lobby.status === 'playing' && lobby.currentProduct) {
+          socket.emit('game:started', {
+            product: lobby.currentProduct,
+            roundIndex: lobby.currentRoundIndex,
+            totalRounds: lobby.roundsTotal
+          });
         }
       } catch (error) {
         console.error('❌ Error joining lobby:', error);

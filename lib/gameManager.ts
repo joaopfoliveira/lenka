@@ -187,11 +187,6 @@ class GameManager {
 
     const finalPlayerName = this.generateUniqueName(lobby, safeName);
 
-    // Can only join waiting lobbies (new players can't join mid-game)
-    if (lobby.status !== 'waiting') {
-      return null;
-    }
-
     // New player joining
     lobby.players.push({
       id: playerId,
