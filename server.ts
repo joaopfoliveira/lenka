@@ -207,12 +207,16 @@ app.prepare().then(() => {
           socket.to(code).emit('lobby:state', lobby);
         }
 
-        if (lobby.status === 'playing' && lobby.currentProduct) {
-          socket.emit('game:started', {
-            product: lobby.currentProduct,
-            roundIndex: lobby.currentRoundIndex,
-            totalRounds: lobby.roundsTotal
-          });
+        if (lobby.status === 'playing') {
+          if (lobby.lastRoundResults) {
+            socket.emit('round:results', lobby.lastRoundResults);
+          } else if (lobby.currentProduct) {
+            socket.emit('game:started', {
+              product: lobby.currentProduct,
+              roundIndex: lobby.currentRoundIndex,
+              totalRounds: lobby.roundsTotal
+            });
+          }
         }
       } catch (error) {
         console.error('❌ Error joining lobby:', error);
@@ -296,7 +300,7 @@ app.prepare().then(() => {
             if (results) {
               io.to(code).emit('round:results', results);
 
-              // Wait for all players to be ready (or 120s timeout)
+              // Wait for all players to be ready (or 45s timeout)
               waitForPlayersReady(code, results);
             }
           }
@@ -305,7 +309,7 @@ app.prepare().then(() => {
 
         // Helper function to wait for all players to be ready
         function waitForPlayersReady(lobbyCode: string, results: any) {
-          let readyTimeout = 120; // 2 minutes timeout
+          let readyTimeout = 45; // 45 seconds timeout
           const readyTimer = setInterval(() => {
             readyTimeout--;
             io.to(lobbyCode).emit('ready:timeout', { timeLeft: readyTimeout });
@@ -427,7 +431,7 @@ app.prepare().then(() => {
             if (results) {
               io.to(code).emit('round:results', results);
 
-              // Wait for all players to be ready (or 120s timeout)
+              // Wait for all players to be ready (or 45s timeout)
               waitForPlayersReady(code, results);
             }
           }
@@ -436,7 +440,7 @@ app.prepare().then(() => {
 
         // Helper function to wait for all players to be ready
         function waitForPlayersReady(lobbyCode: string, results: any) {
-          let readyTimeout = 120; // 2 minutes timeout
+          let readyTimeout = 45; // 45 seconds timeout
           const readyTimer = setInterval(() => {
             readyTimeout--;
             io.to(lobbyCode).emit('ready:timeout', { timeLeft: readyTimeout });

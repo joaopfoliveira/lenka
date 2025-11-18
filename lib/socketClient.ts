@@ -180,6 +180,10 @@ export function onRoundUpdate(callback: (data: { timeLeft: number }) => void) {
 
 export function onRoundResults(callback: (data: {
   realPrice: number;
+  productName: string;
+  productUrl: string;
+  productStore: string;
+  roundIndex: number;
   results: Array<{
     playerId: string;
     playerName: string;

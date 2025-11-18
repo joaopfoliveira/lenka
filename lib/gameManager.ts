@@ -32,6 +32,7 @@ export type Lobby = {
   readyPlayers: Record<string, boolean>; // Track who is ready for next round
   productSource: 'kuantokusta' | 'temu' | 'decathlon' | 'mixed'; // Where to fetch products from
   createdAt: number;
+  lastRoundResults: LobbyRoundResults | null;
 };
 
 export type LobbySummary = {
@@ -53,6 +54,16 @@ export type LobbySummary = {
     clientId: string;
     isConnected: boolean;
   }>;
+};
+
+export type LobbyRoundResults = {
+  realPrice: number;
+  productName: string;
+  productUrl: string;
+  productStore: string;
+  results: RoundResultEntry[];
+  leaderboard: Array<{ playerId: string; playerName: string; totalScore: number }>;
+  roundIndex: number;
 };
 
 export type GameStats = {
@@ -144,7 +155,8 @@ class GameManager {
       guesses: {},
       readyPlayers: {},
       productSource,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      lastRoundResults: null
     };
 
     this.lobbies.set(code, lobby);
@@ -343,6 +355,7 @@ class GameManager {
       lobby.currentProduct = lobby.products[0];
       lobby.guesses = {};
       lobby.readyPlayers = {};
+      lobby.lastRoundResults = null;
 
       // Reset all player scores
       lobby.players.forEach(p => p.score = 0);
@@ -394,6 +407,7 @@ class GameManager {
     lobby.currentProduct = lobby.products[0];
     lobby.guesses = {};
     lobby.readyPlayers = {};
+    lobby.lastRoundResults = null;
 
     // Reset all player scores
     lobby.players.forEach(p => p.score = 0);
@@ -414,14 +428,7 @@ class GameManager {
   }
 
   // Calculate scores and get results using new scoring system
-  calculateRoundResults(code: string): {
-    realPrice: number;
-    productName: string;
-    productUrl: string;
-    productStore: string;
-    results: RoundResultEntry[];
-    leaderboard: Array<{ playerId: string; playerName: string; totalScore: number }>;
-  } | null {
+  calculateRoundResults(code: string): LobbyRoundResults | null {
     const lobby = this.lobbies.get(code);
     
     if (!lobby || !lobby.currentProduct) {
@@ -460,7 +467,19 @@ class GameManager {
     // Generate leaderboard
     const leaderboard = generateLeaderboard(results);
 
-    return { realPrice, productName, productUrl, productStore, results, leaderboard };
+    const payload: LobbyRoundResults = {
+      realPrice,
+      productName,
+      productUrl,
+      productStore,
+      results,
+      leaderboard,
+      roundIndex: lobby.currentRoundIndex
+    };
+
+    lobby.lastRoundResults = payload;
+
+    return payload;
   }
 
   // Move to next round
@@ -472,6 +491,7 @@ class GameManager {
     }
 
     lobby.currentRoundIndex++;
+    lobby.lastRoundResults = null;
     
     if (lobby.currentRoundIndex >= lobby.roundsTotal) {
       // Game finished
@@ -501,6 +521,7 @@ class GameManager {
     lobby.products = undefined;
     lobby.guesses = {};
     lobby.readyPlayers = {};
+    lobby.lastRoundResults = null;
     
     // Reset scores
     lobby.players.forEach(p => p.score = 0);

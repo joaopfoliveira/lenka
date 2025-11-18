@@ -2,19 +2,11 @@
 
 import { type ReactNode } from 'react';
 import { SfxProvider } from './components/sfx/SfxProvider';
-import SfxToggle from './components/sfx/SfxToggle';
 
 export default function Providers({ children }: { children: ReactNode }) {
   return (
     <SfxProvider>
-      <div className="relative min-h-screen">
-        {children}
-        <div className="pointer-events-none fixed top-4 right-4 z-50 flex flex-col items-end gap-2">
-          <div className="pointer-events-auto">
-            <SfxToggle />
-          </div>
-        </div>
-      </div>
+      <div className="relative min-h-screen">{children}</div>
     </SfxProvider>
   );
 }

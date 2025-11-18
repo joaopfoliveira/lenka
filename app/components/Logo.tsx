@@ -11,7 +11,7 @@ export default function Logo({
     <svg
       width={width}
       height={height}
-      viewBox="-20 -10 400 200"
+      viewBox="-40 -10 440 200"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
     >
@@ -46,9 +46,9 @@ export default function Logo({
       <g>
         {/* Outer marquee */}
         <rect
-          x="0"
+          x="-20"
           y="25"
-          width="360"
+          width="400"
           height="130"
           rx="42"
           fill="url(#lenka-panel)"

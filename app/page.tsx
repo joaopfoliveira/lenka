@@ -1,20 +1,24 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft,
+  ChevronDown,
+  Coins,
   DoorClosed,
   Gamepad2,
+  Settings,
   Sparkles,
   Users,
-  Coins,
+  X,
 } from 'lucide-react';
 import Logo from './components/Logo';
 import { useSfx } from './components/sfx/SfxProvider';
+import SfxToggle from './components/sfx/SfxToggle';
 import { ensurePlayerClientId, resolvePlayerName } from './utils/playerIdentity';
-import { useLanguage } from './hooks/useLanguage';
+import { useLanguage, type Language } from './hooks/useLanguage';
 
 export default function Home() {
   const router = useRouter();
@@ -24,7 +28,15 @@ export default function Home() {
   const [error, setError] = useState('');
   const { playTick, playDing } = useSfx();
   const [isLaunching, setIsLaunching] = useState(false);
-  const { language, toggleLanguage } = useLanguage();
+  const { language, setLanguage } = useLanguage();
+  const settingsCardRef = useRef<HTMLDivElement | null>(null);
+  const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const languageOptions: Array<{ value: Language; label: string; flag: string }> = [
+    { value: 'pt', label: 'Português', flag: '🇵🇹' },
+    { value: 'en', label: 'English', flag: '🇬🇧' },
+  ];
+  const selectedLanguage = languageOptions.find((option) => option.value === language) ?? languageOptions[0];
   const DEFAULT_ROUNDS = 5;
   const DEFAULT_SOURCE: 'kuantokusta' | 'temu' | 'decathlon' | 'mixed' = 'mixed';
   const t = (en: string, pt: string) => (language === 'pt' ? pt : en);
@@ -33,6 +45,18 @@ export default function Home() {
     router.prefetch('/lobby/__create__');
     ensurePlayerClientId();
   }, [router]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!settingsCardRef.current) return;
+      if (!settingsCardRef.current.contains(event.target as Node)) {
+        setShowSettings(false);
+        setIsLanguageMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleCreateLobby = () => {
     setError('');
@@ -65,14 +89,6 @@ export default function Home() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-lenka-stage px-4 py-10 text-white">
-      <div className="pointer-events-auto absolute right-24 top-4 z-40">
-        <button
-          onClick={toggleLanguage}
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-white/30 bg-white/10 text-xl text-white transition hover:bg-white/20"
-        >
-          {language === 'en' ? '🇵🇹' : '🇬🇧'}
-        </button>
-      </div>
       {isLaunching && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/85 text-center text-white backdrop-blur-sm">
           <p className="text-sm uppercase tracking-[0.4em] text-white/60">
@@ -129,7 +145,7 @@ export default function Home() {
                     {t('Players', 'Jogadores')}
                   </span>
                 </div>
-                <p className="mt-2 text-2xl font-bold text-white">{t('2-8 friends', '2-8 amigos')}</p>
+                <p className="mt-2 text-2xl font-bold text-white">{t('1-8 friends', '1-8 amigos')}</p>
                 <p className="text-xs text-white/70">
                   {t('Party mode recommended', 'Modo festa recomendado')}
                 </p>
@@ -344,6 +360,88 @@ export default function Home() {
             )}
           </div>
         </section>
+      </div>
+      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 sm:inset-auto sm:left-8 sm:bottom-8 sm:px-0 sm:justify-start">
+        <div className="pointer-events-auto flex w-full max-w-sm flex-col items-start gap-3" ref={settingsCardRef}>
+          {!showSettings && (
+            <button
+              onClick={() => setShowSettings(true)}
+              className="flex h-12 w-12 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white shadow-lg transition hover:bg-white/20"
+              aria-label={t('Open settings', 'Abrir definições')}
+            >
+              <Settings className="h-5 w-5" />
+            </button>
+          )}
+          {showSettings && (
+            <div className="w-full rounded-3xl border border-white/15 bg-white/5 p-4 shadow-lenka-card backdrop-blur">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-[10px] uppercase tracking-[0.4em] text-white/60">
+                  {t('Settings', 'Definições')}
+                </p>
+                <button
+                  onClick={() => {
+                    setShowSettings(false);
+                    setIsLanguageMenuOpen(false);
+                  }}
+                  className="rounded-full border border-white/20 bg-white/5 p-1 text-white transition hover:bg-white/10"
+                  aria-label={t('Close settings', 'Fechar definições')}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="mt-3 space-y-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-white/50">
+                    {t('Language', 'Idioma')}
+                  </p>
+                  <div className="mt-2">
+                    <button
+                      onClick={() => setIsLanguageMenuOpen((prev) => !prev)}
+                      className="flex w-full items-center justify-between rounded-2xl border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="text-lg">{selectedLanguage.flag}</span>
+                        <span>{selectedLanguage.label}</span>
+                      </span>
+                      <ChevronDown
+                        className={`h-4 w-4 transition-transform ${isLanguageMenuOpen ? 'rotate-180' : ''}`}
+                      />
+                    </button>
+                    {isLanguageMenuOpen && (
+                      <div className="mt-2 rounded-2xl border border-white/15 bg-white/10 p-1 text-sm text-white shadow-2xl backdrop-blur">
+                        {languageOptions.map((option) => (
+                          <button
+                            key={option.value}
+                            onClick={() => {
+                              setLanguage(option.value);
+                              setIsLanguageMenuOpen(false);
+                            }}
+                            className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-semibold transition ${
+                              option.value === language
+                                ? 'bg-white/20 text-white'
+                                : 'text-white/70 hover:bg-white/10'
+                            }`}
+                          >
+                            <span className="text-lg">{option.flag}</span>
+                            <span>{option.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-white/50">
+                    {t('Sound Effects', 'Efeitos Sonoros')}
+                  </p>
+                  <div className="mt-2 flex justify-start">
+                    <SfxToggle />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -9,9 +9,11 @@ import {
   DoorOpen,
   Loader2,
   RadioTower,
+  Settings,
   Sparkles,
   Trophy,
   Users,
+  X,
 } from 'lucide-react';
 import {
   connectSocket,
@@ -45,6 +47,7 @@ import ProductImage from '@/app/components/ProductImage';
 import { useSfx } from '@/app/components/sfx/SfxProvider';
 import { useLanguage, type Language } from '@/app/hooks/useLanguage';
 import { ensurePlayerClientId } from '@/app/utils/playerIdentity';
+import SfxToggle from '@/app/components/sfx/SfxToggle';
 
 const wheelSegments = [
   '5€',
@@ -113,20 +116,13 @@ function StageBackground({
   children,
   maxWidth = 'max-w-5xl',
   disableMotion = false,
-  languageToggle,
 }: {
   children: ReactNode;
   maxWidth?: string;
   disableMotion?: boolean;
-  languageToggle?: ReactNode;
 }) {
   return (
     <div className="relative min-h-screen overflow-hidden bg-lenka-stage px-3 py-6 text-white sm:px-6">
-      {languageToggle && (
-        <div className="pointer-events-auto absolute right-24 top-4 z-30">
-          {languageToggle}
-        </div>
-      )}
       <div className="pointer-events-none absolute inset-0 opacity-80">
         {disableMotion ? (
           <>
@@ -149,6 +145,20 @@ function StageBackground({
         )}
       </div>
       <div className={`relative z-10 mx-auto ${maxWidth}`}>{children}</div>
+    </div>
+  );
+}
+
+function SettingsPanel() {
+  return (
+    <div className="rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-white shadow-lenka-card backdrop-blur">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.4em] text-white/60">Settings</p>
+          <p className="text-sm font-semibold text-white/80">Sound Effects</p>
+        </div>
+        <SfxToggle />
+      </div>
     </div>
   );
 }
@@ -286,6 +296,14 @@ function WheelOverlay({
   );
 }
 
+function SettingsHeader({ code, onCopy }: { code: string; onCopy: () => void }) {
+  return (
+    <div className="mb-6 flex justify-end">
+      <LobbyCodeBadge code={code} onCopy={onCopy} />
+    </div>
+  );
+}
+
 export default function LobbyPage() {
   const params = useParams();
   const router = useRouter();
@@ -306,7 +324,7 @@ export default function LobbyPage() {
   const [isStarting, setIsStarting] = useState(false);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
-  const [readyTimeout, setReadyTimeout] = useState(120);
+  const [readyTimeout, setReadyTimeout] = useState(45);
   const [isReady, setIsReady] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
@@ -339,22 +357,39 @@ export default function LobbyPage() {
   const activeLobbyCodeRef = useRef<string | null>(code !== '__create__' ? code : null);
   const kickingPlayerIdRef = useRef<string | null>(null);
   const safeReturnRef = useRef<() => void>(() => {});
+  const shouldConfirmExitRef = useRef(true);
+  const lastAppliedResultRoundRef = useRef<number | null>(null);
+  const lastSubmittedGuessRef = useRef<string>('');
+  const autoSubmitRoundRef = useRef<number | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const settingsMenuRef = useRef<HTMLDivElement | null>(null);
   const { playTick, playDing, playBuzzer, playFanfare, playApplause } = useSfx();
-  const { language, toggleLanguage } = useLanguage();
-  const t = (en: string, pt: string) => (language === 'pt' ? pt : en);
-  const languageToggle = (
-    <button
-      onClick={toggleLanguage}
-      className="flex h-10 w-10 items-center justify-center rounded-full border border-white/30 bg-white/10 text-xl text-white transition hover:bg-white/20"
-    >
-      {language === 'en' ? '🇵🇹' : '🇬🇧'}
-    </button>
-  );
+  const { language } = useLanguage();
+  const t = useCallback((en: string, pt: string) => (language === 'pt' ? pt : en), [language]);
   const languageRef = useRef(language);
 
   useEffect(() => {
     languageRef.current = language;
   }, [language]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!settingsMenuRef.current) {
+        return;
+      }
+      if (!settingsMenuRef.current.contains(event.target as Node)) {
+        setIsSettingsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (lobby) {
+      setTotalRounds(lobby.roundsTotal);
+    }
+  }, [lobby]);
   const roundOptions = [5, 8, 10] as const;
   const productSourceOptions: Array<{
     value: 'mixed' | 'kuantokusta' | 'temu' | 'decathlon';
@@ -405,6 +440,46 @@ export default function LobbyPage() {
     kickingPlayerIdRef.current = kickingPlayerId;
   }, [kickingPlayerId]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!shouldConfirmExitRef.current) {
+        return;
+      }
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    const handlePopState = () => {
+      if (!shouldConfirmExitRef.current) {
+        return;
+      }
+      const message =
+        languageRef.current === 'pt'
+          ? 'Tens a certeza que queres sair do lobby?'
+          : 'Are you sure you want to leave the lobby?';
+      const confirmLeave = window.confirm(message);
+      if (confirmLeave) {
+        shouldConfirmExitRef.current = false;
+        safeReturnRef.current();
+      } else {
+        window.history.pushState(null, '', window.location.href);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('popstate', handlePopState);
+    window.history.pushState(null, '', window.location.href);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
   const revealProduct = (payload: {
     product: Product;
     roundIndex: number;
@@ -420,6 +495,9 @@ export default function LobbyPage() {
     setTimeLeft(15);
     setGuess('');
     setHasSubmitted(false);
+    lastSubmittedGuessRef.current = '';
+    autoSubmitRoundRef.current = null;
+    lastSubmittedGuessRef.current = '';
     setShowResults(false);
     setRoundResults(null);
     setFinalLeaderboard(null);
@@ -465,7 +543,7 @@ export default function LobbyPage() {
   };
 
   // Helper to add and track timeouts
-  const addTimeout = (callback: () => void, delay: number) => {
+  const addTimeout = useCallback((callback: () => void, delay: number) => {
     const timeout = setTimeout(() => {
       callback();
       // Remove from active list
@@ -473,7 +551,7 @@ export default function LobbyPage() {
     }, delay);
     activeTimeouts.current.push(timeout);
     return timeout;
-  };
+  }, []);
 
   // Helper to clear all timeouts
   const clearAllTimeouts = () => {
@@ -499,6 +577,7 @@ export default function LobbyPage() {
 
     const playerName = localStorage.getItem('playerName');
     if (!playerName) {
+      shouldConfirmExitRef.current = false;
       router.push('/');
       return;
     }
@@ -532,7 +611,10 @@ export default function LobbyPage() {
         setRoundResults(null);
         setFinalLeaderboard(null);
         setIsReady(false);
-        setReadyTimeout(120);
+        lastAppliedResultRoundRef.current = null;
+        lastSubmittedGuessRef.current = '';
+        autoSubmitRoundRef.current = null;
+        setReadyTimeout(45);
         setIsStarting(false);
         setIsLoadingProducts(false);
         setLoadingMessage('');
@@ -620,9 +702,10 @@ export default function LobbyPage() {
         guess: r.guess,
         diff: r.difference
       })));
+      lastAppliedResultRoundRef.current = results.roundIndex;
       setRoundResults(results);
       setShowResults(true);
-      setReadyTimeout(120); // Reset ready timeout to 120 seconds
+      setReadyTimeout(45); // Reset ready timeout to 45 seconds
       setIsReady(false); // Reset ready state
     });
 
@@ -749,7 +832,7 @@ export default function LobbyPage() {
         }
       });
     };
-  }, [code, router, startWheelSpin]);
+  }, [addTimeout, code, router, startWheelSpin]);
 
   useEffect(() => {
     if (!currentProduct) {
@@ -765,6 +848,7 @@ export default function LobbyPage() {
     }
     prevTimeLeftRef.current = timeLeft;
   }, [currentProduct, playBuzzer, playTick, timeLeft]);
+
 
   useEffect(() => {
     if (showResults && roundResults) {
@@ -783,6 +867,22 @@ export default function LobbyPage() {
       playBuzzer();
     }
   }, [playBuzzer, readyTimeout]);
+
+  useEffect(() => {
+    if (!lobby?.lastRoundResults) {
+      return;
+    }
+    if (lastAppliedResultRoundRef.current === lobby.lastRoundResults.roundIndex) {
+      return;
+    }
+    lastAppliedResultRoundRef.current = lobby.lastRoundResults.roundIndex;
+    setRoundResults(lobby.lastRoundResults);
+    setShowResults(true);
+    setRoundIndex(lobby.lastRoundResults.roundIndex);
+    setIsLoadingProducts(false);
+    setPendingRoundPayload(null);
+    setPendingLoadingState(null);
+  }, [lobby?.lastRoundResults]);
 
   const handleStartGame = async () => {
     console.log('🎮 Start Game clicked. Lobby:', lobby, 'isStarting:', isStarting);
@@ -811,19 +911,60 @@ export default function LobbyPage() {
     startGame(lobby.code);
   };
 
+  const submitGuessValue = useCallback(
+    (value: string, { auto }: { auto?: boolean } = {}) => {
+      if (!value || !lobby) {
+        return false;
+      }
+  
+      const parsed = parseFloat(value);
+      if (isNaN(parsed) || parsed < 0) {
+        if (!auto) {
+          setError(t('Please enter a valid price', 'Introduz um preço válido'));
+          addTimeout(() => setError(''), 3000);
+        }
+        return false;
+      }
+  
+      submitGuess(lobby.code, parsed);
+      lastSubmittedGuessRef.current = value;
+      if (!hasSubmitted) {
+        setHasSubmitted(true);
+      }
+      if (!auto) {
+        playDing();
+      }
+      return true;
+    },
+    [addTimeout, hasSubmitted, lobby, playDing, t]
+  );
+
   const handleSubmitGuess = () => {
-    if (!guess || hasSubmitted || !lobby) return;
-    
-    const value = parseFloat(guess);
-    if (isNaN(value) || value < 0) {
-      setError(t('Please enter a valid price', 'Introduz um preço válido'));
+    submitGuessValue(guess);
+  };
+
+  useEffect(() => {
+    if (!lobby) {
       return;
     }
-
-    submitGuess(lobby.code, value);
-    setHasSubmitted(true);
-    playDing();
-  };
+    if (timeLeft > 1) {
+      return;
+    }
+    if (!guess || !guess.trim()) {
+      return;
+    }
+    const activeRound = lobby.currentRoundIndex ?? roundIndex;
+    if (autoSubmitRoundRef.current === activeRound) {
+      return;
+    }
+    if (guess === lastSubmittedGuessRef.current) {
+      return;
+    }
+    const submitted = submitGuessValue(guess, { auto: true });
+    if (submitted) {
+      autoSubmitRoundRef.current = activeRound;
+    }
+  }, [guess, lobby, roundIndex, submitGuessValue, timeLeft]);
 
   const handlePlayAgain = () => {
     if (isResetting || !lobby) {
@@ -888,6 +1029,7 @@ export default function LobbyPage() {
 
   const handleSafeReturn = () => {
     console.log('🛟 Safe return triggered');
+    shouldConfirmExitRef.current = false;
     if (lobby) {
       try {
         leaveLobby(lobby.code);
@@ -904,6 +1046,9 @@ export default function LobbyPage() {
     setFinalLeaderboard(null);
     setIsReady(false);
     setHasSubmitted(false);
+    lastAppliedResultRoundRef.current = null;
+    lastSubmittedGuessRef.current = '';
+    autoSubmitRoundRef.current = null;
     if (typeof window !== 'undefined') {
       window.sessionStorage.removeItem('lenka:lastLobbyCode');
     }
@@ -928,6 +1073,7 @@ export default function LobbyPage() {
     console.log('👋 Leaving lobby');
     setIsLeaving(true);
     playBuzzer();
+    shouldConfirmExitRef.current = false;
     
     try {
       leaveLobby(lobby.code);
@@ -964,17 +1110,53 @@ export default function LobbyPage() {
       language={language}
     />
   );
+  const floatingSettings = (
+    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center px-4 sm:inset-auto sm:left-6 sm:bottom-6 sm:px-0 sm:justify-start">
+      <div className="pointer-events-auto flex w-full max-w-sm flex-col items-start gap-3" ref={settingsMenuRef}>
+        {!isSettingsOpen && (
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className="flex h-12 w-12 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white shadow-lg transition hover:bg-white/20"
+            aria-label={t('Open settings', 'Abrir definições')}
+          >
+            <Settings className="h-5 w-5" />
+          </button>
+        )}
+        {isSettingsOpen && (
+          <div className="w-full rounded-3xl border border-white/15 bg-white/5 p-4 text-white shadow-2xl backdrop-blur">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-xs uppercase tracking-[0.4em] text-white/60">
+                {t('Settings', 'Definições')}
+              </p>
+              <button
+                onClick={() => setIsSettingsOpen(false)}
+                className="rounded-full border border-white/20 bg-white/5 p-1 text-white transition hover:bg-white/10"
+                aria-label={t('Close settings', 'Fechar definições')}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <SettingsPanel />
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   if (!lobby) {
     return (
-      <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-3xl" languageToggle={languageToggle}>
-        {wheelOverlay}
+      <>
+        <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-3xl">
+          {wheelOverlay}
         <div className="rounded-3xl border border-white/15 bg-white/10 p-10 text-center shadow-lenka-card backdrop-blur">
           {error ? (
             <div className="space-y-4">
               <p className="text-2xl font-bold text-red-200">{error}</p>
               <button
-                onClick={() => router.push('/')}
+                onClick={() => {
+                  shouldConfirmExitRef.current = false;
+                  router.push('/');
+                }}
                 className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-gradient-to-r from-lenka-electric to-lenka-pink px-6 py-3 text-lg font-semibold text-white shadow-lenka-glow"
               >
                 {t('Return Home', 'Voltar ao início')}
@@ -992,20 +1174,30 @@ export default function LobbyPage() {
             </div>
           )}
         </div>
-      </StageBackground>
+        </StageBackground>
+        {floatingSettings}
+      </>
     );
   }
+  const settingsHeader = <SettingsHeader code={lobby.code} onCopy={copyLobbyCode} />;
 
   // Loading products screen
-  if (isLoadingProducts) {
+  if (isLoadingProducts || lobby.status === 'loading') {
+    const loadingCopy =
+      loadingMessage ||
+      pendingLoadingState?.message ||
+      t('Lenka is curating new products...', 'A Lenka está a preparar novos produtos...');
+    const totalToShow = totalRounds || lobby.roundsTotal;
     return (
-      <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-4xl" languageToggle={languageToggle}>
-        {wheelOverlay}
+      <>
+        <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-4xl">
+          {wheelOverlay}
+          {settingsHeader}
         <div className="rounded-3xl border border-white/15 bg-white/5 p-8 text-center shadow-lenka-card backdrop-blur">
           <div className="mb-8 flex flex-col items-center gap-4">
             <RadioTower className="h-16 w-16 text-lenka-gold drop-shadow-[0_0_25px_rgba(255,215,111,0.6)]" />
             <h1 className="text-4xl font-extrabold text-white">{t('Preparing Your Show', 'A preparar o espetáculo')}</h1>
-            <p className="text-lg text-white/80">{loadingMessage}</p>
+            <p className="text-lg text-white/80">{loadingCopy}</p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-left">
             <p className="text-sm uppercase tracking-[0.4em] text-white/60">
@@ -1013,8 +1205,8 @@ export default function LobbyPage() {
             </p>
             <p className="mt-2 text-2xl font-bold text-lenka-gold">
               {language === 'pt'
-                ? `${totalRounds} produtos surpresa`
-                : `${totalRounds} surprise product(s)`}
+                ? `${totalToShow} produtos surpresa`
+                : `${totalToShow} surprise product(s)`}
             </p>
             <p className="text-sm text-white/80">
               {t('Fresh data, real-time prices, and plenty of drama.', 'Dados frescos, preços em tempo real e muito drama.')}
@@ -1033,24 +1225,30 @@ export default function LobbyPage() {
         <div className="mt-6">
           <SafeExitButton onClick={handleSafeReturn} label={t('Exit to Main Menu', 'Voltar ao menu principal')} />
         </div>
-      </StageBackground>
+        </StageBackground>
+        {floatingSettings}
+      </>
     );
   }
+
+  const resolvedTotalRounds = totalRounds || lobby.roundsTotal;
+  const resolvedRoundIndex = roundResults?.roundIndex ?? lobby.currentRoundIndex ?? roundIndex;
 
   // Playing - Show results (check FIRST before waiting/finished screens)
   if (showResults && roundResults) {
     return (
-      <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl" languageToggle={languageToggle}>
-        {wheelOverlay}
-        <LobbyCodeBadge code={lobby.code} onCopy={copyLobbyCode} />
+      <>
+        <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl">
+          {wheelOverlay}
+          {settingsHeader}
         <div className="space-y-6">
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lenka-card backdrop-blur">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="text-xs uppercase tracking-[0.4em] text-white/60">
                   {language === 'pt'
-                    ? `Ronda ${roundIndex + 1} de ${totalRounds}`
-                    : `Round ${roundIndex + 1} of ${totalRounds}`}
+                    ? `Ronda ${resolvedRoundIndex + 1} de ${resolvedTotalRounds}`
+                    : `Round ${resolvedRoundIndex + 1} of ${resolvedTotalRounds}`}
                 </p>
                 <h1 className="text-3xl font-bold text-lenka-gold">
                   {t('Showdown Results', 'Resultados da ronda')}
@@ -1181,67 +1379,77 @@ export default function LobbyPage() {
           </div>
 
           <div className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-lenka-card backdrop-blur">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-[0.4em] text-white/60">
-                  {t('Ready Check', 'Prontos?')}
-                </p>
-                <p className="text-2xl font-bold text-white">
-                  {t('Ready', 'Prontos')} {Object.keys(lobby.readyPlayers || {}).length} / {lobby.players.length}
-                </p>
-                <p className="text-xs uppercase tracking-[0.3em] text-white/50">
-                  {t('Auto-start in', 'Começa automaticamente em')}{' '}
-                  {Math.floor(readyTimeout / 60)}:{String(readyTimeout % 60).padStart(2, '0')}
-                </p>
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.4em] text-white/60">
+                    {t('Ready Check', 'Prontos?')}
+                  </p>
+                  <p className="text-2xl font-bold text-white">
+                    {t('Ready', 'Prontos')} {Object.keys(lobby.readyPlayers || {}).length} / {lobby.players.length}
+                  </p>
+                  <p className="text-[11px] uppercase tracking-[0.3em] text-white/50">
+                    {t('Auto-start in', 'Começa automaticamente em')}{' '}
+                    {Math.floor(readyTimeout / 60)}:{String(readyTimeout % 60).padStart(2, '0')}
+                  </p>
+                </div>
+                {!isReady ? (
+                  <button
+                    onClick={handleMarkReady}
+                    className="inline-flex items-center gap-2 rounded-full border border-lenka-teal/70 bg-lenka-teal/30 px-6 py-3 text-base font-semibold text-white shadow-lenka-card transition hover:bg-lenka-teal/40"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    {resolvedRoundIndex + 1 === resolvedTotalRounds
+                      ? t('Final Reveal', 'Revelar final')
+                      : t('Ready Up', 'Estou pronto')}
+                  </button>
+                ) : (
+                  <div className="rounded-full border border-lenka-teal bg-lenka-teal/10 px-6 py-3 text-sm font-semibold text-lenka-teal">
+                    {t('Ready! Waiting for others...', 'Pronto! À espera dos restantes...')}
+                  </div>
+                )}
               </div>
-              {!isReady ? (
-                <button
-                  onClick={handleMarkReady}
-                  className="inline-flex items-center gap-2 rounded-full border border-lenka-teal/60 bg-lenka-teal/20 px-6 py-3 text-sm font-semibold text-white shadow-lenka-card transition hover:bg-lenka-teal/30"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  {roundIndex + 1 === totalRounds
-                    ? t('Reveal Final Results', 'Revelar resultados finais')
-                    : t('Ready for Next Round', 'Pronto para a próxima ronda')}
-                </button>
-              ) : (
-                <div className="rounded-full border border-lenka-teal px-6 py-3 text-sm font-semibold text-lenka-teal">
-                  {t('Waiting for others...', 'À espera dos restantes...')}
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                <p className="text-[10px] uppercase tracking-[0.4em] text-white/50">
+                  {t('Players', 'Jogadores')}
+                </p>
+                <div className="mt-2 flex max-h-36 flex-wrap gap-2 overflow-y-auto pr-1">
+                  {lobby.players.map((player) => (
+                    <div
+                      key={player.id}
+                      className={`flex items-center gap-2 rounded-full px-4 py-1 text-xs font-semibold ${
+                        lobby.readyPlayers?.[player.id]
+                          ? 'bg-lenka-teal/30 text-lenka-teal'
+                          : 'bg-white/10 text-white/70'
+                      }`}
+                    >
+                      <span>
+                        {player.name} {lobby.readyPlayers?.[player.id] && '✓'}
+                      </span>
+                      {renderKickButton(player)}
+                    </div>
+                  ))}
                 </div>
-              )}
-            </div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {lobby.players.map((player) => (
-                <div
-                  key={player.id}
-                  className={`flex items-center gap-2 rounded-full px-4 py-1 text-xs font-semibold ${
-                    lobby.readyPlayers?.[player.id]
-                      ? 'bg-lenka-teal/30 text-lenka-teal'
-                      : 'bg-white/10 text-white/70'
-                  }`}
-                >
-                  <span>
-                    {player.name} {lobby.readyPlayers?.[player.id] && '✓'}
-                  </span>
-                  {renderKickButton(player)}
-                </div>
-              ))}
+              </div>
             </div>
           </div>
         </div>
         <div className="mt-6">
           <SafeExitButton onClick={handleSafeReturn} label={t('Exit to Main Menu', 'Voltar ao menu principal')} />
         </div>
-      </StageBackground>
+        </StageBackground>
+        {floatingSettings}
+      </>
     );
   }
 
   // Game finished screen (CHECK BEFORE currentProduct to prevent showing guess screen)
   if (lobby.status === 'finished' && finalLeaderboard) {
     return (
-      <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-4xl" languageToggle={languageToggle}>
-        {wheelOverlay}
-        <LobbyCodeBadge code={lobby.code} onCopy={copyLobbyCode} />
+      <>
+        <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-4xl">
+          {wheelOverlay}
+          {settingsHeader}
         <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center shadow-lenka-card backdrop-blur">
           <div className="flex flex-col items-center gap-3">
             <Trophy className="h-16 w-16 text-lenka-gold drop-shadow-[0_0_25px_rgba(255,215,111,0.6)]" />
@@ -1299,24 +1507,27 @@ export default function LobbyPage() {
             </button>
           </div>
         </div>
-      </StageBackground>
+        </StageBackground>
+        {floatingSettings}
+      </>
     );
   }
 
   // Playing - Guessing phase
   if (currentProduct) {
     return (
-      <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl" languageToggle={languageToggle}>
-        {wheelOverlay}
-        <LobbyCodeBadge code={lobby.code} onCopy={copyLobbyCode} />
+      <>
+        <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl">
+          {wheelOverlay}
+          {settingsHeader}
         <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lenka-card backdrop-blur">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-xs uppercase tracking-[0.4em] text-white/60">
                   {language === 'pt'
-                    ? `Ronda ${roundIndex + 1} / ${totalRounds}`
-                    : `Round ${roundIndex + 1} / ${totalRounds}`}
+                    ? `Ronda ${resolvedRoundIndex + 1} / ${resolvedTotalRounds}`
+                    : `Round ${resolvedRoundIndex + 1} / ${resolvedTotalRounds}`}
                 </p>
                 <h2 className="text-3xl font-bold text-white">
                   {t('Guess that price!', 'Adivinha esse preço!')}
@@ -1372,25 +1583,24 @@ export default function LobbyPage() {
                     placeholder="0.00"
                     step="0.01"
                     min="0"
-                    disabled={hasSubmitted}
                     className="w-full bg-transparent text-4xl font-black text-white placeholder:text-white/20 focus:outline-none"
                   />
                 </div>
                 <button
                   onClick={handleSubmitGuess}
-                  disabled={hasSubmitted || !guess}
+                  disabled={!guess}
                   className={`rounded-2xl px-8 py-4 text-lg font-bold text-white shadow-lenka-card transition ${
-                    hasSubmitted || !guess
+                    !guess
                       ? 'cursor-not-allowed bg-white/10 text-white/30'
                       : 'bg-gradient-to-r from-lenka-gold to-lenka-pink hover:scale-[1.01]'
                   }`}
                 >
-                  {hasSubmitted ? t('Submitted', 'Enviado') : t('Lock Guess', 'Bloquear palpite')}
+                  {hasSubmitted ? t('Update Guess', 'Atualizar palpite') : t('Lock Guess', 'Bloquear palpite')}
                 </button>
               </div>
               {hasSubmitted && (
                 <p className="text-center text-sm uppercase tracking-[0.3em] text-lenka-teal">
-                  {t('Guess sent! Waiting for the others...', 'Palpite enviado! A aguardar pelos restantes...')}
+                  {t('Guess sent! You can still edit before the round closes.', 'Palpite enviado! Podes editar até a ronda fechar.')}
                 </p>
               )}
             </div>
@@ -1409,7 +1619,7 @@ export default function LobbyPage() {
                   <div
                     key={player.id}
                     className={`flex items-center justify-between rounded-2xl border px-3 py-2 text-sm font-semibold ${
-                      lobby.guesses[player.id] !== undefined
+                      lobby.currentRoundIndex === roundIndex && lobby.guesses[player.id] !== undefined
                         ? 'border-lenka-teal/70 bg-lenka-teal/20 text-lenka-teal'
                         : 'border-white/15 bg-white/5 text-white/70'
                     }`}
@@ -1457,15 +1667,18 @@ export default function LobbyPage() {
             </button>
           </div>
         </div>
-      </StageBackground>
+        </StageBackground>
+        {floatingSettings}
+      </>
     );
   }
 
   // Waiting screen (default)
   if (lobby.status === 'waiting') {
     return (
-      <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl" languageToggle={languageToggle}>
-        {wheelOverlay}
+      <>
+        <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl">
+          {wheelOverlay}
         <div className="grid gap-6 lg:grid-cols-[1.1fr,0.9fr]">
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-lenka-card backdrop-blur">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1625,9 +1838,9 @@ export default function LobbyPage() {
                 {t('Showtime Pro Tips', 'Dicas do espetáculo')}
               </p>
               <ul className="mt-3 space-y-2 text-sm text-white/70">
-                <li>• {t('Wheel decides when the show starts. Buckle up!', 'A roda decide quando começa. Aperta o cinto!')}</li>
-                <li>• {t('Bonus points reward the boldest guesses.', 'Os bónus recompensam os palpites mais ousados.')}</li>
-                <li>• {t('Hover buttons for a tick—Lenka hears you.', 'Passa o rato nos botões — a Lenka ouve-te.')}</li>
+                <li>• {t('Lock your guess early — Lenka auto-saves the last price if the buzzer hits.', 'Bloqueia o palpite cedo — a Lenka guarda o último preço caso o buzzer toque.')}</li>
+                <li>• {t('Auto-submit kicks in with 1 second left, so stay calm if you’re finishing a value.', 'O envio automático acontece a 1 segundo do fim, por isso mantém a calma se estiveres a terminar um valor.')}</li>
+                <li>• {t('Ready up between rounds to keep the show moving — the wheel only spins once everyone clicks Ready.', 'Marca-te pronto entre rondas para manter o show a andar — a roda só gira quando todos clicam em Pronto.')}</li>
               </ul>
             </div>
           </div>
@@ -1635,7 +1848,9 @@ export default function LobbyPage() {
         <div className="mt-6">
           <SafeExitButton onClick={handleSafeReturn} label={t('Exit to Main Menu', 'Voltar ao menu principal')} />
         </div>
-      </StageBackground>
+        </StageBackground>
+        {floatingSettings}
+      </>
     );
   }
 
