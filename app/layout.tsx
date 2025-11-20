@@ -15,7 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="icon" href="/icone.png" sizes="256x256" />
       </head>
       <body className="antialiased">
         <Providers>{children}</Providers>

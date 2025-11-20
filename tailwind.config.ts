@@ -9,12 +9,18 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["'Poppins'", "'Inter'", "system-ui", "sans-serif"],
-        display: ["'Bungee'", "'Luckiest Guy'", "cursive", "sans-serif"],
+        sans: ["'Barlow'", "'Inter'", "system-ui", "sans-serif"],
+        display: ["'Playfair Display'", "Georgia", "serif"],
+        ad: ["'Archivo Black'", "'Impact'", "'Arial Black'", "sans-serif"],
       },
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        page: "#FDF3E3",
+        card: "#FFF8EC",
+        "blue-deep": "#1E4470",
+        "blue-mid": "#4F8ED3",
+        "blue-light": "#9DC7F5",
         lenka: {
           red: "#FF3B1F",
           mustard: "#E2B22C",
@@ -41,6 +47,9 @@ const config: Config = {
       boxShadow: {
         "lenka-card": "0 25px 60px rgba(5, 11, 44, 0.45)",
         "lenka-glow": "0 0 25px rgba(255, 215, 111, 0.7)",
+        flyer: "0 12px 0 rgba(0, 0, 0, 0.17)",
+        "flyer-sm": "0 8px 0 rgba(0, 0, 0, 0.15)",
+        "flyer-xs": "0 6px 0 rgba(0, 0, 0, 0.12)",
       },
       backgroundImage: {
         "lenka-stage":

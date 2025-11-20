@@ -13,7 +13,7 @@ export default function SfxToggle() {
         playTick();
         toggleMute();
       }}
-      className="flex h-10 w-10 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white transition hover:bg-white/20"
+      className="flex h-10 w-10 items-center justify-center rounded-full border border-blue-deep/30 bg-blue-mid text-card transition hover:bg-blue-mid/80"
       whileTap={{ scale: 0.92 }}
       aria-label={isMuted ? 'Unmute SFX' : 'Mute SFX'}
     >

@@ -1,43 +1,44 @@
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Barlow:wght@500;600;700&family=Playfair+Display:wght@600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --background: #030821;
-  --foreground: #f6f7fb;
+  --background: #fdf3e3;
+  --foreground: #1e4470;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: 'Poppins', 'Inter', system-ui, -apple-system, BlinkMacSystemFont,
+  font-family: 'Barlow', 'Inter', system-ui, -apple-system, BlinkMacSystemFont,
     'Segoe UI', sans-serif;
   min-height: 100vh;
   position: relative;
   overflow-x: hidden;
 }
 
-body::before,
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background: radial-gradient(
-      circle at 25% 20%,
-      rgba(77, 141, 255, 0.35),
-      transparent 55%
-    ),
-    radial-gradient(
-      circle at 80% 5%,
-      rgba(255, 125, 158, 0.25),
-      transparent 45%
-    ),
-    radial-gradient(
-      circle at 10% 80%,
-      rgba(45, 224, 198, 0.15),
-      transparent 50%
-    );
+@layer components {
+  .flyer-box {
+    @apply rounded-lg border-2 border-blue-deep bg-card shadow-flyer;
+  }
+
+  .flyer-panel {
+    @apply rounded-md border-2 border-blue-deep bg-card shadow-flyer-sm;
+  }
+
+  .coupon-button {
+    @apply rounded-md border-2 border-blue-deep font-ad uppercase tracking-wide text-blue-deep shadow-flyer transition-transform;
+  }
+
+  .promo-badge {
+    @apply inline-flex items-center justify-center rounded-full border-2 border-blue-deep bg-blue-mid px-4 py-2 font-ad text-lg uppercase text-card shadow-flyer-sm;
+  }
+
+  .label-chip {
+    @apply rounded-md border-2 border-blue-mid px-3 py-1 text-xs font-semibold uppercase tracking-wide text-blue-deep shadow-flyer-xs;
+  }
 }
 
 @layer utilities {
