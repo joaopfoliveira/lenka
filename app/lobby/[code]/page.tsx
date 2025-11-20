@@ -1248,8 +1248,11 @@ export default function LobbyPage() {
         difference: Math.abs((result.guess as number) - roundResults.realPrice),
         signedDifference: (result.guess as number) - roundResults.realPrice,
       }));
-    const maxDifference = guessEntries.reduce((max, entry) => Math.max(max, entry.difference), 0);
-    const targetPoints = guessEntries.map((entry, index) => {
+    const maxDifference = guessEntries.reduce(
+      (max: number, entry: typeof guessEntries[number]) => Math.max(max, entry.difference),
+      0
+    );
+    const targetPoints = guessEntries.map((entry: typeof guessEntries[number], index: number) => {
       const angle =
         guessEntries.length > 0 ? -Math.PI / 2 + (index / guessEntries.length) * Math.PI * 2 : 0;
       const baseRadius = 32;
@@ -1378,7 +1381,7 @@ export default function LobbyPage() {
                             <p className="text-[10px] uppercase tracking-[0.4em]">{t('Target', 'Alvo')}</p>
                             <p className="font-ad text-xl">€{roundResults.realPrice.toFixed(2)}</p>
                           </div>
-                          {targetPoints.map((entry) => {
+                          {targetPoints.map((entry: (typeof targetPoints)[number]) => {
                             const translateX = Math.cos(entry.angle) * entry.radius;
                             const translateY = Math.sin(entry.angle) * entry.radius;
                             return (
