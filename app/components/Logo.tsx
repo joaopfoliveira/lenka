@@ -1,9 +1,9 @@
-import Image from "next/image";
+import Image from 'next/image';
 
 export default function Logo({
   className = '',
-  width = 360,
-  height = 360,
+  width = 400,
+  height = 160,
 }: {
   className?: string;
   width?: number;
@@ -11,7 +11,7 @@ export default function Logo({
 }) {
   return (
     <Image
-      src="/icone.png"
+      src="/lenka-logo.svg"
       alt="Lenka logo"
       width={width}
       height={height}

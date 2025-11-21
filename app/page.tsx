@@ -96,7 +96,7 @@ export default function Home() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-page px-4 pb-10 pt-0 text-blue-deep">
+    <div className="relative min-h-screen overflow-x-hidden bg-page px-4 pb-10 pt-4 text-blue-deep">
       {isLaunching && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-blue-deep/80 px-6 text-card">
           <div className="flyer-box max-w-lg bg-blue-mid text-center text-card">
@@ -128,7 +128,7 @@ export default function Home() {
 
       <div className="relative z-10 mx-auto flex max-w-5xl flex-col gap-10">
         <div className="flex flex-col items-center">
-          <Logo width={620} height={620} className="-mt-24 -mb-24 max-w-full" />
+          <Logo width={420} height={168} className="-mt-2 -mb-4 max-w-full" />
           <div className="flyer-box mt-6 w-full bg-card px-5 py-5 text-center">
             <p className="font-ad text-[12px] uppercase tracking-[0.45em] text-blue-mid">
               {t('Welcome to Lenka', 'Bem-vindo à Lenka')}
@@ -370,22 +370,24 @@ export default function Home() {
             </h3>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="flyer-panel flex items-center justify-between bg-blue-light/15 px-4 py-3">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-blue-mid">
-                  {t('Sound Effects', 'Efeitos sonoros')}
-                </p>
-                <p className="text-sm font-display text-blue-deep/80">
-                  {t('Mute the buzzers whenever you need.', 'Silencia os efeitos quando quiseres.')}
-                </p>
+            <div className="flex flex-col">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-blue-mid">
+                {t('Sound Effects', 'Efeitos sonoros')}
+              </p>
+              <div className="mt-2 flex flex-1 items-center gap-3">
+                <div className="flyer-panel flex w-full items-center justify-between bg-card px-4 py-2">
+                  <p className="text-sm font-display text-blue-deep/80">
+                    {t('Mute the buzzers whenever you need.', 'Silencia os efeitos quando quiseres.')}
+                  </p>
+                  <SfxToggle />
+                </div>
               </div>
-              <SfxToggle />
             </div>
-            <div>
+            <div className="flex flex-col">
               <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-blue-mid">
                 {t('Language', 'Idioma')}
               </p>
-              <div className="mt-2 relative">
+              <div className="relative mt-2 flex-1">
                 <button
                   onClick={() => setIsLanguageMenuOpen((prev) => !prev)}
                   className="flyer-panel flex w-full items-center justify-between bg-card px-3 py-2"

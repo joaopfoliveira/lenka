@@ -1226,9 +1226,6 @@ export default function LobbyPage() {
               ))}
             </div>
           </div>
-          <div className="mt-6">
-            <SafeExitButton onClick={handleSafeReturn} label={t('Exit to Main Menu', 'Voltar ao menu principal')} />
-          </div>
         </StageBackground>
         {floatingSettings}
       </>
@@ -1438,9 +1435,32 @@ export default function LobbyPage() {
               </div>
             </div>
 
-          </div>
-          <div className="mt-6">
-            <SafeExitButton onClick={handleSafeReturn} label={t('Exit to Main Menu', 'Voltar ao menu principal')} />
+            <div className="flyer-box bg-card p-5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.4em] text-blue-mid">
+                {t('Leaderboard', 'Classificação')}
+              </p>
+              <div className="mt-3 space-y-2">
+                {[...lobby.players]
+                  .sort((a, b) => b.score - a.score)
+                  .map((player, index) => (
+                    <div
+                      key={player.id}
+                      className={`flex items-center justify-between rounded-md border-2 px-4 py-2 text-sm shadow-flyer-xs ${
+                        index === 0 ? 'border-blue-deep bg-blue-light/40' : 'border-blue-deep/60 bg-card'
+                      }`}
+                    >
+                      <span className="font-display text-blue-deep">
+                        {index === 0 && '🥇 '}
+                        {index === 1 && '🥈 '}
+                        {index === 2 && '🥉 '}
+                        {player.name}
+                      </span>
+                      <span className="font-ad text-blue-deep">{player.score} pts</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
           </div>
         </StageBackground>
         {floatingSettings}
