@@ -1260,11 +1260,8 @@ export default function LobbyPage() {
                         : `Round ${resolvedRoundIndex + 1} of ${resolvedTotalRounds}`}
                     </p>
                     <h1 className="font-ad text-2xl uppercase text-blue-deep">
-                      {t('Showdown Results', 'Resultados da ronda')}
+                      {t('Round Results', 'Resultados da ronda')}
                     </h1>
-                  </div>
-                  <div className="promo-badge rounded-full bg-blue-mid px-3 py-2 text-card shadow-flyer">
-                    <Sparkles className="h-4 w-4" />
                   </div>
                 </div>
                 <div className="flyer-panel bg-blue-light/15 px-4 py-3 text-center">
@@ -1375,7 +1372,7 @@ export default function LobbyPage() {
                       : `Round ${resolvedRoundIndex + 1} of ${resolvedTotalRounds}`}
                   </p>
                   <h1 className="font-ad text-3xl uppercase text-blue-deep">
-                    {t('Showdown Results', 'Resultados da ronda')}
+                    {t('Round Results', 'Resultados da ronda')}
                   </h1>
                   <p className="font-display text-sm text-blue-deep/80">
                     {t('The closest guess earns the spotlight and the bonus.', 'Quem acerta mais aproxima-se dos holofotes e do bónus.')}
