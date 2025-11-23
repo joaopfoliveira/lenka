@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { ArrowLeft, ChevronDown, Coins, DoorClosed, Gamepad2, Sparkles, Users } from 'lucide-react';
+import { ArrowLeft, Coins, DoorClosed, Gamepad2, Sparkles, Users, User } from 'lucide-react';
 import Logo from './components/Logo';
 import { useSfx } from './components/sfx/SfxProvider';
 import { ensurePlayerClientId, resolvePlayerName } from './utils/playerIdentity';
@@ -22,8 +22,7 @@ export default function Home() {
   const { language } = useLanguage();
   const [isMobileLayout, setIsMobileLayout] = useState(false);
   const [layoutReady, setLayoutReady] = useState(false);
-  const [activeMobileCard, setActiveMobileCard] = useState<'create' | 'join' | null>(null);
-  const [showSoloConfig, setShowSoloConfig] = useState(false);
+  const [mobileOverlay, setMobileOverlay] = useState<'create' | 'join' | 'solo' | null>(null);
   const t = (en: string, pt: string) => (language === 'pt' ? pt : en);
   const DEFAULT_ROUNDS = 5;
   const DEFAULT_SOURCE: 'kuantokusta' | 'temu' | 'decathlon' | 'mixed' = 'mixed';
@@ -192,6 +191,7 @@ export default function Home() {
         </div>
       )}
 
+
       {error && errorContext === 'create' && (
         <div className="flyer-panel border-red-500 bg-red-100 px-4 py-3 text-sm font-semibold text-red-700">
           ⚠️ {error}
@@ -267,11 +267,6 @@ export default function Home() {
     </div>
   );
 
-  const handleToggleMobileCard = (cardKey: 'create' | 'join') => {
-    setActiveMobileCard((prev) => (prev === cardKey ? null : cardKey));
-    clearError();
-    playTick();
-  };
   const heroHighlights = [
     {
       icon: Users,
@@ -309,9 +304,16 @@ export default function Home() {
 
   useEffect(() => {
     if (!isMobileLayout) {
-      setActiveMobileCard(null);
+      setMobileOverlay(null);
     }
   }, [isMobileLayout]);
+
+  useEffect(() => {
+    document.body.style.overflow = mobileOverlay ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileOverlay]);
 
   const handleCreateLobby = () => {
     clearError();
@@ -342,7 +344,7 @@ export default function Home() {
     playDing();
     router.push(`/lobby/${lobbyCode.toUpperCase()}`);
   };
-const handleStartSolo = () => {
+  const handleStartSolo = () => {
     clearError();
     const { finalName } = resolvePlayerName(playerName, setPlayerName);
     localStorage.setItem('playerName', finalName);
@@ -356,6 +358,8 @@ const handleStartSolo = () => {
     setIsLaunching(true);
     router.push('/solo');
   };
+
+  const isOverlayActive = mobileOverlay !== null;
 
   if (!layoutReady) {
     return null;
@@ -393,7 +397,12 @@ const handleStartSolo = () => {
         />
       </div>
 
-      <div className="relative z-10 mx-auto flex max-w-5xl flex-col gap-10">
+      <div
+        className={`relative z-10 mx-auto flex w-full max-w-4xl flex-col gap-10 ${
+          isOverlayActive ? 'pointer-events-none' : ''
+        }`}
+        aria-hidden={isOverlayActive}
+      >
         {isMobileLayout ? (
           <div className="flex flex-col items-center text-center">
             <Logo width={260} height={104} className="mb-3 max-w-full" />
@@ -402,9 +411,9 @@ const handleStartSolo = () => {
             </h1>
           </div>
         ) : (
-          <div className="flex flex-col items-center">
+          <div className="flex w-full flex-col items-center">
             <Logo width={420} height={168} className="-mt-2 -mb-4 max-w-full" />
-            <div className="flyer-box mt-6 w-full bg-card px-5 py-5 text-center">
+            <div className="flyer-box mt-6 w-full max-w-4xl bg-card px-5 py-5 text-center">
               <p className="font-ad text-[12px] uppercase tracking-[0.45em] text-blue-mid">
                 {t('Welcome to Lenka', 'Bem-vindo à Lenka')}
               </p>
@@ -421,207 +430,67 @@ const handleStartSolo = () => {
           </div>
         )}
 
-        <section className="hidden w-full flyer-box bg-card px-6 py-6 md:block">
-          <div className="mb-6 flex items-center justify-between gap-4">
-            <div>
-              <p className="font-ad text-[10px] uppercase tracking-[0.45em] text-blue-mid">
-                {t('Single Player', 'Jogo Individual')}
-              </p>
-              <h2 className="font-display text-3xl font-semibold">
-                {t('Play solo, fast and simple.', 'Joga sozinho, rápido e simples.')}
-              </h2>
-            </div>
-          </div>
-          {renderSoloForm('desktop')}
-        </section>
-
-        <section className="hidden w-full flyer-box bg-card px-6 py-6 md:block">
-          <div className="mb-6 flex items-center justify-between gap-4">
-            <div>
-              <p className="font-ad text-[10px] uppercase tracking-[0.45em] text-blue-mid">
-                {t('Multiplayer', 'Multijogador')}
-              </p>
-              <h2 className="font-display text-3xl font-semibold">
-                {mode === 'menu'
-                  ? t('Pick your coupon', 'Escolhe o cupão')
-                  : mode === 'create'
-                  ? t('Create a showcase', 'Cria um espetáculo')
-                  : t('Join a lobby', 'Entra num lobby')}
-              </h2>
-            </div>
-            {mode !== 'menu' && (
-              <button
-                className="label-chip flex items-center gap-2 rounded-md bg-blue-light/60 px-3 py-2"
-                onClick={() => {
-                  setMode('menu');
-                  clearError();
-                  playTick();
-                }}
-              >
-                <ArrowLeft className="h-4 w-4" />
-                {t('Back', 'Voltar')}
-              </button>
-            )}
-          </div>
-
-          <div className="space-y-6">
-            {mode === 'menu' && (
-              <div className="grid gap-4 sm:grid-cols-2">
-                <button
-                  onClick={() => {
-                    setMode('create');
-                    clearError();
-                    playTick();
-                  }}
-                  className="coupon-button flex h-full flex-col justify-between bg-blue-mid px-5 py-5 text-left text-card hover:-translate-y-1"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[11px] uppercase tracking-[0.35em] text-card/90">
-                        {t('Host Mode', 'Modo anfitrião')}
-                      </p>
-                      <p className="mt-1 font-ad text-2xl uppercase">{t('Create Lobby', 'Criar lobby')}</p>
-                      <p className="mt-1 font-display text-sm text-card/90">
-                        {t('Pick rounds, invite friends, rule the prices.', 'Escolhe rondas, convida amigos e dita os preços.')}
-                      </p>
-                    </div>
-                    <div className="promo-badge rounded-md px-3 py-2">
-                      <Gamepad2 className="h-6 w-6" />
-                    </div>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setMode('join');
-                    clearError();
-                    playTick();
-                  }}
-                  className="coupon-button flex h-full flex-col justify-between bg-card px-5 py-5 text-left hover:-translate-y-1"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[11px] uppercase tracking-[0.35em] text-blue-mid">
-                        {t('Contestant', 'Concorrente')}
-                      </p>
-                      <p className="mt-1 font-ad text-2xl uppercase text-blue-deep">
-                        {t('Join Lobby', 'Entrar no lobby')}
-                      </p>
-                      <p className="mt-1 font-display text-sm text-blue-deep/80">
-                        {t('Drop the secret code and take the stage.', 'Introduce o código e sobe ao palco.')}
-                      </p>
-                    </div>
-                    <div className="promo-badge rounded-md bg-blue-light text-blue-deep">
-                      <DoorClosed className="h-6 w-6" />
-                    </div>
-                  </div>
-                </button>
-              </div>
-            )}
-
-            {mode === 'create' && renderCreateForm('desktop')}
-
-            {mode === 'join' && (
-              <div className="grid gap-6 lg:grid-cols-[0.9fr,1.1fr]">
-                <div className="flyer-panel bg-blue-light/25 px-5 py-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-blue-mid">
-                    {t('Contestant Coupon', 'Cupão de concorrente')}
-                  </p>
-                  <h3 className="font-ad text-3xl uppercase leading-tight">{t('Join a lobby', 'Entra num lobby')}</h3>
-                  <p className="mt-2 font-display text-sm text-blue-deep/80">
-                    {t('Punch in the secret code and step onto the showroom floor.', 'Introduz o código secreto e sobe ao palco.')}
-                  </p>
-                </div>
-                {renderJoinForm('desktop')}
-              </div>
-            )}
-          </div>
-        </section>
-        <section className="flyer-box block w-full bg-card px-4 py-5 md:hidden">
+        <section className="w-full max-w-4xl mx-auto py-5 px-0 md:px-0">
           <div className="space-y-4">
             <div className="flyer-panel bg-card px-4 py-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.35em] text-blue-mid">{t('Single Player', 'Jogo Individual')}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-blue-mid">
+                    {t('Single Player', 'Jogo Individual')}
+                  </p>
                 </div>
               </div>
-              {!showSoloConfig && (
-                <div className="mt-3">
-                  <button
-                    className="coupon-button w-full bg-blue-mid px-4 py-3 text-card hover:-translate-y-1"
+              <div className="mt-3">
+                <button
+                  className="coupon-button flex w-full items-center justify-between rounded-md border-2 border-blue-deep bg-card px-3 py-2 text-left text-blue-deep shadow-flyer-xs hover:-translate-y-0.5"
                     onClick={() => {
-                      setShowSoloConfig(true);
-                      setActiveMobileCard(null);
+                      clearError();
+                      setMobileOverlay('solo');
+                      playTick();
+                    }}
+                  >
+                  <div>
+                    <p className="font-ad text-lg uppercase text-blue-deep">
+                      {t('Start game', 'Começar jogo')}
+                    </p>
+                  </div>
+                  <div className="promo-badge rounded-md bg-blue-light/70 px-2 py-2 text-blue-deep">
+                    <User className="h-5 w-5" />
+                  </div>
+                </button>
+            </div>
+            </div>
+
+            <div className="flyer-panel bg-card px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-blue-mid">
+                {t('Multiplayer', 'Multijogador')}
+              </p>
+              <div className="mt-3 space-y-3">
+                {mobileActionCards.map(({ key, label, title, icon: Icon }) => (
+                  <button
+                    key={key}
+                    className="flex w-full items-center justify-between rounded-md border-2 border-blue-deep bg-card px-3 py-3 text-left shadow-flyer-xs transition hover:-translate-y-0.5"
+                    onClick={() => {
+                      setMobileOverlay(key);
                       clearError();
                       playTick();
                     }}
                   >
-                    {t('Start game', 'Começar jogo')}
-                  </button>
-                </div>
-              )}
-              {showSoloConfig && (
-                <div className="mt-3 space-y-3 border-t border-blue-light/40 pt-3">
-                  {renderSoloForm('mobile', false)}
-                  <div className="flex items-center gap-2">
-                    <button
-                      className="coupon-button flex-1 bg-blue-mid px-4 py-3 text-sm text-card hover:-translate-y-0.5"
-                      onClick={() => handleStartSolo()}
-                      disabled={isLaunching}
-                    >
-                      {isLaunching ? t('Starting...', 'A iniciar...') : t('Start', 'Começar')}
-                    </button>
-                    <button
-                      className="coupon-button flex-1 bg-card px-4 py-3 text-sm hover:-translate-y-1"
-                      onClick={() => setShowSoloConfig(false)}
-                      disabled={isLaunching}
-                    >
-                      {t('Back', 'Voltar')}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flyer-panel bg-card px-4 py-3">
-              <p className="text-[11px] uppercase tracking-[0.35em] text-blue-mid">{t('Multiplayer', 'Multijogador')}</p>
-              <div className="mt-3 space-y-3">
-                {mobileActionCards.map(({ key, label, title, icon: Icon }) => {
-                  const open = activeMobileCard === key;
-                  return (
-                    <div key={key} className="flyer-panel bg-card px-3 py-2">
-                      <button
-                        className="flex w-full items-center justify-between text-left"
-                        onClick={() => {
-                          setShowSoloConfig(false);
-                          handleToggleMobileCard(key);
-                        }}
-                      >
-                        <div>
-                          <p className="text-[10px] uppercase tracking-[0.35em] text-blue-mid">{label}</p>
-                          <p className="font-ad text-lg uppercase text-blue-deep">{title}</p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="promo-badge rounded-md bg-blue-light/70 px-2 py-2 text-blue-deep">
-                            <Icon className="h-5 w-5" />
-                          </div>
-                          <ChevronDown className={`h-5 w-5 transition-transform ${open ? 'rotate-180' : ''}`} />
-                        </div>
-                      </button>
-                      {open && (
-                        <div className="mt-3 border-t border-blue-light/40 pt-3">
-                          {key === 'create' ? renderCreateForm('mobile') : renderJoinForm('mobile')}
-                        </div>
-                      )}
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.35em] text-blue-mid">{label}</p>
+                      <p className="font-ad text-lg uppercase text-blue-deep">{title}</p>
                     </div>
-                  );
-                })}
+                    <div className="promo-badge rounded-md bg-blue-light/70 px-2 py-2 text-blue-deep">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
         </section>
 
-        <section className="hidden w-full flyer-box bg-card px-5 py-5 md:block">
+        <section className="hidden w-full max-w-4xl mx-auto flyer-box bg-card px-5 py-5 md:block">
           <div className="mb-4 text-center">
             <p className="font-ad text-[10px] uppercase tracking-[0.45em] text-blue-mid">
               {t('How it plays', 'Como funciona')}
@@ -645,6 +514,46 @@ const handleStartSolo = () => {
         </section>
 
       </div>
+
+      {mobileOverlay && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-blue-deep/40 px-4 py-5 backdrop-blur-sm"
+          onClick={() => {
+            setMobileOverlay(null);
+            clearError();
+          }}
+        >
+          <div
+            className="relative max-h-full w-full max-w-lg overflow-y-auto rounded-xl bg-card p-5 shadow-flyer"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <button
+                className="label-chip flex items-center gap-2 bg-blue-light/60 px-3 py-2"
+                onClick={() => {
+                  setMobileOverlay(null);
+                  clearError();
+                }}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                {t('Back', 'Voltar')}
+              </button>
+              <p className="text-[10px] uppercase tracking-[0.4em] text-blue-mid">
+                {mobileOverlay === 'create'
+                  ? t('Host Mode', 'Modo anfitrião')
+                  : mobileOverlay === 'join'
+                  ? t('Contestant', 'Concorrente')
+                  : t('Single Player', 'Jogo Individual')}
+              </p>
+            </div>
+            {mobileOverlay === 'create'
+              ? renderCreateForm('mobile')
+              : mobileOverlay === 'join'
+              ? renderJoinForm('mobile')
+              : renderSoloForm('mobile')}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

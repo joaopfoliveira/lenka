@@ -1,5 +1,7 @@
 'use client';
 
+'use client';
+
 import { useSfx } from './sfx/SfxProvider';
 import SfxToggle from './sfx/SfxToggle';
 import { useLanguage, type Language } from '../hooks/useLanguage';
@@ -34,10 +36,10 @@ export default function TopControls({ className = '' }: { className?: string }) 
               }`}
               aria-label={option.label}
               title={option.label}
-              >
-                <span>{option.emoji}</span>
-              </button>
-            );
+            >
+              <span>{option.emoji}</span>
+            </button>
+          );
         })}
       </div>
       <div className="ml-1">
