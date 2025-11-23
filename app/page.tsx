@@ -9,6 +9,7 @@ import { useSfx } from './components/sfx/SfxProvider';
 import { ensurePlayerClientId, resolvePlayerName } from './utils/playerIdentity';
 import { useLanguage } from './hooks/useLanguage';
 import TopControls from './components/TopControls';
+import SfxToggle from './components/sfx/SfxToggle';
 
 export default function Home() {
   const router = useRouter();
@@ -19,10 +20,11 @@ export default function Home() {
   const [errorContext, setErrorContext] = useState<'create' | 'join' | ''>('');
   const { playTick, playDing } = useSfx();
   const [isLaunching, setIsLaunching] = useState(false);
-  const { language } = useLanguage();
+  const { language, setLanguage } = useLanguage();
   const [isMobileLayout, setIsMobileLayout] = useState(false);
   const [layoutReady, setLayoutReady] = useState(false);
   const [mobileOverlay, setMobileOverlay] = useState<'create' | 'join' | 'solo' | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
   const t = (en: string, pt: string) => (language === 'pt' ? pt : en);
   const DEFAULT_ROUNDS = 5;
   const DEFAULT_SOURCE: 'kuantokusta' | 'temu' | 'decathlon' | 'mixed' = 'mixed';
@@ -61,6 +63,16 @@ export default function Home() {
     setErrorContext(context);
   };
   const renderSoloForm = (variant: 'desktop' | 'mobile' = 'desktop', includeActions = true) => {
+    const selectClass =
+      'appearance-none mt-2 w-full rounded-md border-2 border-blue-deep bg-card px-3 py-2 pr-10 font-ad text-lg uppercase text-blue-deep focus:outline-none';
+    const selectStyle = {
+      backgroundImage:
+        "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath fill='%232F4A2A' d='M5.5 7.5 10 12l4.5-4.5-1-1L10 10.5 6.5 6.5z'/%3E%3C/svg%3E\")",
+      backgroundRepeat: 'no-repeat',
+      backgroundPosition: 'right 0.85rem center',
+      backgroundSize: '14px',
+    } as const;
+
     const roundsControl =
       variant === 'mobile' ? (
         <div className="flyer-panel bg-blue-light/15 px-3 py-2">
@@ -70,7 +82,8 @@ export default function Home() {
           <select
             value={soloRounds}
             onChange={(e) => setSoloRounds(Number(e.target.value) as (typeof roundOptions)[number])}
-            className="mt-2 w-full rounded-md border-2 border-blue-deep bg-card px-3 py-2 font-ad text-lg uppercase text-blue-deep focus:outline-none"
+            className={selectClass}
+            style={selectStyle}
           >
             {roundOptions.map((option) => (
               <option key={`solo-round-${option}`} value={option}>
@@ -107,7 +120,8 @@ export default function Home() {
           <select
             value={soloSource}
             onChange={(e) => setSoloSource(e.target.value as typeof soloSource)}
-            className="mt-2 w-full rounded-md border-2 border-blue-deep bg-card px-3 py-2 font-ad text-lg uppercase text-blue-deep focus:outline-none"
+            className={selectClass}
+            style={selectStyle}
           >
             {productSourceOptions.map((option) => (
               <option key={`solo-src-${option.value}`} value={option.value}>
@@ -309,11 +323,11 @@ export default function Home() {
   }, [isMobileLayout]);
 
   useEffect(() => {
-    document.body.style.overflow = mobileOverlay ? 'hidden' : '';
+    document.body.style.overflow = mobileOverlay || showSettings ? 'hidden' : '';
     return () => {
       document.body.style.overflow = '';
     };
-  }, [mobileOverlay]);
+  }, [mobileOverlay, showSettings]);
 
   const handleCreateLobby = () => {
     clearError();
@@ -367,7 +381,16 @@ export default function Home() {
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-page px-4 pb-10 pt-16 text-blue-deep sm:pt-6">
-      <TopControls />
+      <TopControls
+        isMobile={isMobileLayout}
+        onOpenSettings={
+          isMobileLayout
+            ? () => {
+                setShowSettings(true);
+              }
+            : undefined
+        }
+      />
       {isLaunching && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-blue-deep/80 px-6 text-card">
           <div className="flyer-box max-w-lg bg-blue-mid text-center text-card">
@@ -399,15 +422,15 @@ export default function Home() {
 
       <div
         className={`relative z-10 mx-auto flex w-full max-w-4xl flex-col gap-10 ${
-          isOverlayActive ? 'pointer-events-none' : ''
+          isOverlayActive || showSettings ? 'pointer-events-none' : ''
         }`}
-        aria-hidden={isOverlayActive}
+        aria-hidden={isOverlayActive || showSettings}
       >
         {isMobileLayout ? (
           <div className="flex flex-col items-center text-center">
             <Logo width={260} height={104} className="mb-3 max-w-full" />
             <h1 className="font-ad text-lg uppercase leading-snug text-blue-deep">
-              {t('Guess the price, steal the spotlight.', 'Adivinha o preço e prova que és o melhor capitalista!')}
+              {t('Guess the price, prove you are the best consumer!', 'Adivinha o preço e prova que és o melhor consumidor!')}
             </h1>
           </div>
         ) : (
@@ -418,7 +441,7 @@ export default function Home() {
                 {t('Welcome to Lenka', 'Bem-vindo à Lenka')}
               </p>
               <h1 className="mt-2 font-ad text-xl uppercase leading-snug text-blue-deep sm:text-2xl">
-                {t('Guess the price, steal the spotlight.', 'Adivinha o preço e prova que és o melhor capitalista!')}
+                {t('Guess the price, prove you are the best consumer!.', 'Adivinha o preço e prova que és o melhor consumidor!')}
               </h1>
               <p className="mt-3 font-display text-sm text-blue-deep/80 sm:text-base">
                 {t(
@@ -515,7 +538,7 @@ export default function Home() {
 
       </div>
 
-      {mobileOverlay && (
+      {mobileOverlay && !showSettings && (
         <div
           className="fixed inset-0 z-[80] flex items-center justify-center bg-blue-deep/40 px-4 py-5 backdrop-blur-sm"
           onClick={() => {
@@ -551,6 +574,60 @@ export default function Home() {
               : mobileOverlay === 'join'
               ? renderJoinForm('mobile')
               : renderSoloForm('mobile')}
+          </div>
+        </div>
+      )}
+
+      {showSettings && (
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-blue-deep/40 px-4 py-5 backdrop-blur-sm"
+          onClick={() => setShowSettings(false)}
+        >
+          <div
+            className="relative max-h-full w-full max-w-lg overflow-y-auto rounded-xl bg-card p-5 shadow-flyer"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <button
+                className="label-chip flex items-center gap-2 bg-blue-light/60 px-3 py-2"
+                onClick={() => setShowSettings(false)}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                {t('Back', 'Voltar')}
+              </button>
+              <p className="text-[10px] uppercase tracking-[0.4em] text-blue-mid">
+                {t('Settings', 'Definições')}
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flyer-panel bg-card px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-blue-mid">
+                  {t('Language', 'Idioma')}
+                </p>
+                <div className="mt-2 flex gap-2">
+                  {['pt', 'en'].map((lng) => (
+                    <button
+                      key={lng}
+                      onClick={() => {
+                        setLanguage(lng as 'pt' | 'en');
+                        playTick();
+                      }}
+                      className={`label-chip ${language === lng ? 'bg-blue-light text-blue-deep' : 'bg-card text-blue-deep/80'}`}
+                    >
+                      {lng === 'pt' ? 'PT' : 'EN'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flyer-panel flex items-center justify-between bg-card px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-blue-mid">
+                  {t('Sound Effects', 'Efeitos sonoros')}
+                </p>
+                <SfxToggle size={32} />
+              </div>
+            </div>
           </div>
         </div>
       )}

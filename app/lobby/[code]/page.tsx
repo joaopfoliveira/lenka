@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useTransition, useCallback, type ReactNode
 import { useParams, useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
+  ArrowLeft,
   Clock3,
   Copy,
   DoorOpen,
@@ -115,10 +116,12 @@ function StageBackground({
   children,
   maxWidth = 'max-w-5xl',
   disableMotion = false,
+  overlay,
 }: {
   children: ReactNode;
   maxWidth?: string;
   disableMotion?: boolean;
+  overlay?: ReactNode;
 }) {
   return (
     <div className="relative min-h-screen overflow-hidden bg-page px-3 py-8 text-blue-deep sm:px-6">
@@ -144,6 +147,7 @@ function StageBackground({
         )}
       </div>
       <div className={`relative z-10 mx-auto ${maxWidth}`}>{children}</div>
+      {overlay}
     </div>
   );
 }
@@ -345,6 +349,7 @@ export default function LobbyPage() {
   } | null>(null);
   const [kickingPlayerId, setKickingPlayerId] = useState<string | null>(null);
   const [, startLobbyTransition] = useTransition();
+  const [showSettings, setShowSettings] = useState(false);
   
   const mountedRef = useRef(false);
   const activeTimeouts = useRef<NodeJS.Timeout[]>([]); // Track all active timeouts
@@ -363,7 +368,7 @@ export default function LobbyPage() {
   const lastSubmittedGuessRef = useRef<string>('');
   const autoSubmitRoundRef = useRef<number | null>(null);
   const { playTick, playDing, playBuzzer, playFanfare, playApplause } = useSfx();
-  const { language } = useLanguage();
+  const { language, setLanguage } = useLanguage();
   const t = useCallback((en: string, pt: string) => (language === 'pt' ? pt : en), [language]);
   const languageRef = useRef(language);
 
@@ -379,6 +384,13 @@ export default function LobbyPage() {
     setLayoutReady(true);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = showSettings ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showSettings]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1125,7 +1137,69 @@ export default function LobbyPage() {
       language={language}
     />
   );
-  const topControls = <TopControls />;
+  const topControls = (
+    <TopControls
+      isMobile={isMobileLayout}
+      onOpenSettings={
+        isMobileLayout
+          ? () => {
+              setShowSettings(true);
+            }
+          : undefined
+      }
+    />
+  );
+  const settingsModal = showSettings ? (
+    <div
+      className="fixed inset-0 z-[95] flex items-center justify-center bg-blue-deep/40 px-4 py-5 backdrop-blur-sm"
+      onClick={() => setShowSettings(false)}
+    >
+      <div
+        className="relative max-h-full w-full max-w-lg overflow-y-auto rounded-xl bg-card p-5 shadow-flyer"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <button
+            className="label-chip flex items-center gap-2 bg-blue-light/60 px-3 py-2"
+            onClick={() => setShowSettings(false)}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            {t('Back', 'Voltar')}
+          </button>
+          <p className="text-[10px] uppercase tracking-[0.4em] text-blue-mid">
+            {t('Settings', 'Definições')}
+          </p>
+        </div>
+        <div className="space-y-3">
+          <div className="flyer-panel bg-card px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-blue-mid">
+              {t('Language', 'Idioma')}
+            </p>
+            <div className="mt-2 flex gap-2">
+              {(['pt', 'en'] as Language[]).map((lng) => (
+                <button
+                  key={lng}
+                  onClick={() => {
+                    setLanguage(lng);
+                    playTick();
+                  }}
+                  className={`label-chip ${language === lng ? 'bg-blue-light text-blue-deep' : 'bg-card text-blue-deep/80'}`}
+                >
+                  {lng === 'pt' ? 'PT' : 'EN'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flyer-panel flex items-center justify-between bg-card px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-blue-mid">
+              {t('Sound Effects', 'Efeitos sonoros')}
+            </p>
+            <SfxToggle size={32} />
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   if (!layoutReady) {
     return null;
@@ -1134,7 +1208,7 @@ export default function LobbyPage() {
   if (!lobby) {
     return (
       <>
-        <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-3xl">
+        <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-3xl" overlay={settingsModal}>
           {wheelOverlay}
           <div className="flyer-box bg-card p-10 text-center">
             {error ? (
@@ -1177,7 +1251,7 @@ export default function LobbyPage() {
     const totalToShow = totalRounds || lobby.roundsTotal;
     return (
       <>
-        <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-4xl">
+        <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-4xl" overlay={settingsModal}>
           {settingsHeader}
             <div className="flyer-box bg-card p-8 text-center mt-10">
             <div className="flex flex-col items-center gap-3">
@@ -1249,7 +1323,7 @@ export default function LobbyPage() {
       return (
         <>
           {topControls}
-          <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-md">
+          <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-md" overlay={settingsModal}>
             <div className="space-y-3 mt-12">
               <div className="flyer-box bg-card p-4 space-y-3">
                 <div className="flex items-center justify-between">
@@ -1359,7 +1433,7 @@ export default function LobbyPage() {
     }
     return (
       <>
-        <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl">
+        <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl" overlay={settingsModal}>
           {wheelOverlay}
           {settingsHeader}
           <div className="space-y-6">
@@ -1571,7 +1645,7 @@ export default function LobbyPage() {
     return (
       <>
         {topControls}
-        <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-md">
+        <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-md" overlay={settingsModal}>
           {wheelOverlay}
           <div className="flyer-box bg-card p-3 space-y-2.5 mt-12">
             <div className="flex flex-col items-center gap-3">
@@ -1640,7 +1714,7 @@ export default function LobbyPage() {
       return (
         <>
           {topControls}
-          <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-md">
+          <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-md" overlay={settingsModal}>
             {wheelOverlay}
             <div className="flyer-box bg-card p-3 space-y-2.5 mt-12">
               <div className="flex items-start justify-between gap-2">
@@ -1767,7 +1841,7 @@ export default function LobbyPage() {
     return (
       <>
         {topControls}
-        <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl">
+        <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl" overlay={settingsModal}>
           {wheelOverlay}
           {settingsHeader}
           <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
@@ -1902,7 +1976,7 @@ export default function LobbyPage() {
       return (
         <>
           {topControls}
-          <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-md">
+          <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-md" overlay={settingsModal}>
             <div className="flyer-box bg-card p-4 space-y-4 mt-12">
               <div className="flex items-center justify-between">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.4em] text-blue-mid">
@@ -2005,7 +2079,7 @@ export default function LobbyPage() {
     }
     return (
       <>
-        <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl">
+        <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl" overlay={settingsModal}>
           {wheelOverlay}
           <div className="grid gap-6 lg:grid-cols-[1.1fr,0.9fr]">
             <div className="flyer-box bg-card p-6">

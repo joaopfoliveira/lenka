@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Clock3, Home, Sparkles } from 'lucide-react';
+import { ArrowLeft, Clock3, Home, Sparkles } from 'lucide-react';
 import ProductImage from '@/app/components/ProductImage';
 import { productCollection } from '@/data/products';
 import { type Product } from '@/lib/productTypes';
 import TopControls from '@/app/components/TopControls';
 import { useSfx } from '@/app/components/sfx/SfxProvider';
 import { useLanguage } from '@/app/hooks/useLanguage';
+import SfxToggle from '@/app/components/sfx/SfxToggle';
 
 type SoloResult = {
   product: Product;
@@ -52,7 +53,7 @@ function pickProducts(source: Product['source'] | 'mixed', rounds: number) {
 export default function SoloPage() {
   const router = useRouter();
   const { playTick, playDing, playBuzzer } = useSfx();
-  const { language } = useLanguage();
+  const { language, setLanguage } = useLanguage();
   const [products, setProducts] = useState<Product[]>([]);
   const [roundIndex, setRoundIndex] = useState(0);
   const [guess, setGuess] = useState('');
@@ -65,6 +66,7 @@ export default function SoloPage() {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const [isMobileLayout, setIsMobileLayout] = useState(false);
   const [runId, setRunId] = useState(0);
+  const [showSettings, setShowSettings] = useState(false);
 
   const currentProduct = products[roundIndex];
 
@@ -109,6 +111,13 @@ export default function SoloPage() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = showSettings ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showSettings]);
 
   useEffect(() => {
     if (!currentProduct || showResult) return;
@@ -426,7 +435,16 @@ export default function SoloPage() {
 
   return (
     <Stage>
-      <TopControls />
+      <TopControls
+        isMobile={isMobileLayout}
+        onOpenSettings={
+          isMobileLayout
+            ? () => {
+                setShowSettings(true);
+              }
+            : undefined
+        }
+      />
       <div className="mb-6 flex items-center justify-between">
         <h1 className="font-ad text-2xl uppercase text-blue-deep">{t('Solo Mode', 'Modo solo')}</h1>
       </div>
@@ -441,6 +459,60 @@ export default function SoloPage() {
           {t('Leave game', 'Sair do jogo')}
         </button>
       </div>
+
+      {showSettings && (
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-blue-deep/40 px-4 py-5 backdrop-blur-sm"
+          onClick={() => setShowSettings(false)}
+        >
+          <div
+            className="relative max-h-full w-full max-w-lg overflow-y-auto rounded-xl bg-card p-5 shadow-flyer"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <button
+                className="label-chip flex items-center gap-2 bg-blue-light/60 px-3 py-2"
+                onClick={() => setShowSettings(false)}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                {t('Back', 'Voltar')}
+              </button>
+              <p className="text-[10px] uppercase tracking-[0.4em] text-blue-mid">
+                {t('Settings', 'Definições')}
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flyer-panel bg-card px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-blue-mid">
+                  {t('Language', 'Idioma')}
+                </p>
+                <div className="mt-2 flex gap-2">
+                  {['pt', 'en'].map((lng) => (
+                    <button
+                      key={lng}
+                      onClick={() => {
+                        setLanguage(lng as 'pt' | 'en');
+                        playTick();
+                      }}
+                      className={`label-chip ${language === lng ? 'bg-blue-light text-blue-deep' : 'bg-card text-blue-deep/80'}`}
+                    >
+                      {lng === 'pt' ? 'PT' : 'EN'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flyer-panel flex items-center justify-between bg-card px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-blue-mid">
+                  {t('Sound Effects', 'Efeitos sonoros')}
+                </p>
+                <SfxToggle size={32} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </Stage>
   );
 }
