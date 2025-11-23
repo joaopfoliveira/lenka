@@ -9,11 +9,9 @@ import {
   DoorOpen,
   Loader2,
   RadioTower,
-  Settings,
   Sparkles,
   Trophy,
   Users,
-  X,
 } from 'lucide-react';
 import {
   connectSocket,
@@ -47,6 +45,7 @@ import ProductImage from '@/app/components/ProductImage';
 import { useSfx } from '@/app/components/sfx/SfxProvider';
 import { useLanguage, type Language } from '@/app/hooks/useLanguage';
 import { ensurePlayerClientId } from '@/app/utils/playerIdentity';
+import TopControls from '@/app/components/TopControls';
 import SfxToggle from '@/app/components/sfx/SfxToggle';
 
 const wheelSegments = [
@@ -298,9 +297,9 @@ function WheelOverlay({
 
 function SettingsHeader({ code, onCopy }: { code: string; onCopy: () => void }) {
   return (
-    <div className="mb-6 flex justify-end">
-      <LobbyCodeBadge code={code} onCopy={onCopy} />
-    </div>
+      <div className="mb-6 flex justify-end">
+        <LobbyCodeBadge code={code} onCopy={onCopy} />
+      </div>
   );
 }
 
@@ -324,6 +323,8 @@ export default function LobbyPage() {
   const [isStarting, setIsStarting] = useState(false);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
+  const [isMobileLayout, setIsMobileLayout] = useState(false);
+  const [layoutReady, setLayoutReady] = useState(false);
   const [readyTimeout, setReadyTimeout] = useState(45);
   const [isReady, setIsReady] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
@@ -361,8 +362,6 @@ export default function LobbyPage() {
   const lastAppliedResultRoundRef = useRef<number | null>(null);
   const lastSubmittedGuessRef = useRef<string>('');
   const autoSubmitRoundRef = useRef<number | null>(null);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const settingsMenuRef = useRef<HTMLDivElement | null>(null);
   const { playTick, playDing, playBuzzer, playFanfare, playApplause } = useSfx();
   const { language } = useLanguage();
   const t = useCallback((en: string, pt: string) => (language === 'pt' ? pt : en), [language]);
@@ -373,16 +372,20 @@ export default function LobbyPage() {
   }, [language]);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!settingsMenuRef.current) {
-        return;
-      }
-      if (!settingsMenuRef.current.contains(event.target as Node)) {
-        setIsSettingsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    if (typeof window === 'undefined') return;
+    const handleResize = () => setIsMobileLayout(window.innerWidth < 768);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    setLayoutReady(true);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleResize = () => setIsMobileLayout(window.innerWidth < 768);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   useEffect(() => {
@@ -669,13 +672,14 @@ export default function LobbyPage() {
       console.log('⏳ Loading products:', message);
       const funMessage = getShowtimeMessage(languageRef.current, total);
       setIsStarting(false);
-      setPendingLoadingState({ message: funMessage, total });
+      setPendingLoadingState(null);
+      setPendingRoundPayload(null);
       setWheelMessage(funMessage);
-      setIsLoadingProducts(false);
-
-      if (!wheelVisibleRef.current) {
-        startWheelSpin(funMessage);
-      }
+      setIsWheelVisible(false);
+      setIsLoadingProducts(true);
+      setLoadingMessage(funMessage);
+      setTotalRounds(total);
+      setLobby((prev) => (prev ? { ...prev, status: 'loading' } : prev));
     });
 
     const unsubGameStarted = onGameStarted(({ product, roundIndex: rIndex, totalRounds: total }) => {
@@ -683,11 +687,22 @@ export default function LobbyPage() {
       const payload = { product, roundIndex: rIndex, totalRounds: total };
       setIsStarting(false);
       setPendingLoadingState(null);
-      if (wheelVisibleRef.current) {
-        setPendingRoundPayload(payload);
-      } else {
-        revealProduct(payload);
-      }
+      setPendingRoundPayload(null);
+      setIsWheelVisible(false);
+      setIsLoadingProducts(false);
+      setLoadingMessage('');
+      setLobby((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: 'playing',
+              currentRoundIndex: rIndex,
+              roundsTotal: total,
+              currentProduct: product,
+            }
+          : prev
+      );
+      revealProduct(payload);
     });
 
     const unsubRoundUpdate = onRoundUpdate(({ timeLeft: time }) => {
@@ -1110,38 +1125,11 @@ export default function LobbyPage() {
       language={language}
     />
   );
-  const floatingSettings = (
-    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center px-4 sm:inset-auto sm:left-6 sm:bottom-6 sm:px-0 sm:justify-start">
-      <div className="pointer-events-auto flex w-full max-w-sm flex-col items-start gap-3" ref={settingsMenuRef}>
-        {!isSettingsOpen && (
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="coupon-button flex h-12 w-12 items-center justify-center bg-blue-mid text-card hover:-translate-y-1"
-            aria-label={t('Open settings', 'Abrir definições')}
-          >
-            <Settings className="h-5 w-5" />
-          </button>
-        )}
-        {isSettingsOpen && (
-          <div className="flyer-box w-full bg-card p-4 text-blue-deep">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[0.4em] text-blue-mid">
-                {t('Settings', 'Definições')}
-              </p>
-              <button
-                onClick={() => setIsSettingsOpen(false)}
-                className="label-chip rounded-md bg-blue-light/70"
-                aria-label={t('Close settings', 'Fechar definições')}
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <SettingsPanel />
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  const topControls = <TopControls />;
+
+  if (!layoutReady) {
+    return null;
+  }
 
   if (!lobby) {
     return (
@@ -1175,59 +1163,57 @@ export default function LobbyPage() {
             )}
           </div>
         </StageBackground>
-        {floatingSettings}
       </>
     );
   }
-  const settingsHeader = <SettingsHeader code={lobby.code} onCopy={copyLobbyCode} />;
+  const settingsHeader = lobby.status === 'finished' ? null : <SettingsHeader code={lobby.code} onCopy={copyLobbyCode} />;
 
   // Loading products screen
-  if (isLoadingProducts || lobby.status === 'loading') {
+  if (isLoadingProducts || (lobby.status === 'loading' && !currentProduct)) {
     const loadingCopy =
       loadingMessage ||
       pendingLoadingState?.message ||
-      t('Lenka is curating new products...', 'A Lenka está a preparar novos produtos...');
+      t('Fetching products...', 'A buscar produtos...');
     const totalToShow = totalRounds || lobby.roundsTotal;
     return (
       <>
         <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-4xl">
-          {wheelOverlay}
           {settingsHeader}
-          <div className="flyer-box bg-card p-8 text-center">
-            <div className="mb-8 flex flex-col items-center gap-3">
+            <div className="flyer-box bg-card p-8 text-center mt-10">
+            <div className="flex flex-col items-center gap-3">
               <div className="promo-badge rounded-full bg-blue-mid text-card shadow-flyer">
                 <RadioTower className="h-10 w-10" />
               </div>
-              <h1 className="font-ad text-4xl uppercase text-blue-deep">
-                {t('Preparing Your Show', 'A preparar o espetáculo')}
+              <h1 className="font-ad text-3xl uppercase text-blue-deep">
+                {language === 'pt' ? 'A buscar produtos...' : 'Fetching products...'}
               </h1>
-              <p className="font-display text-lg text-blue-deep/80">{loadingCopy}</p>
-            </div>
-            <div className="flyer-panel bg-blue-light/20 p-6 text-left">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.4em] text-blue-mid">
-                {t('Fetching surprises', 'A buscar surpresas')}
-              </p>
-              <p className="mt-2 font-ad text-2xl uppercase text-blue-deep">
+              <p className="font-display text-base text-blue-deep/80">
                 {language === 'pt'
-                  ? `${totalToShow} produtos surpresa`
-                  : `${totalToShow} surprise product(s)`}
+                  ? `A tentar ir buscar ${totalToShow} produtos`
+                  : `Trying to fetch ${totalToShow} products`}
               </p>
-              <p className="font-display text-sm text-blue-deep/80">
-                {t('Fresh data, real-time prices, and plenty of drama.', 'Dados frescos, preços em tempo real e muito drama.')}
-              </p>
-            </div>
-            <div className="mt-8 flex justify-center gap-2">
-              {[0, 150, 300].map((delay) => (
-                <span
-                  key={delay}
-                  className="h-3 w-3 rounded-full bg-blue-deep opacity-80 animate-bounce"
-                  style={{ animationDelay: `${delay}ms` }}
-                />
-              ))}
+              <p className="font-display text-sm text-blue-deep/70">{loadingCopy}</p>
+              <div className="mt-6 flex justify-center gap-2">
+                {[0, 150, 300].map((delay) => (
+                  <span
+                    key={delay}
+                    className="h-3 w-3 rounded-full bg-blue-deep opacity-80 animate-bounce"
+                    style={{ animationDelay: `${delay}ms` }}
+                  />
+                ))}
+              </div>
+              <div className="mt-6 flex justify-center">
+                <button
+                  onClick={handleSafeReturn}
+                  className="coupon-button inline-flex items-center gap-2 bg-card px-5 py-3 text-sm text-blue-deep hover:-translate-y-1"
+                >
+                  <DoorOpen className="h-4 w-4" />
+                  {t('Exit to Home', 'Sair para o início')}
+                </button>
+              </div>
             </div>
           </div>
         </StageBackground>
-        {floatingSettings}
       </>
     );
   }
@@ -1258,6 +1244,122 @@ export default function LobbyPage() {
       return { ...entry, angle, radius };
     });
     const sortedGuessEntries = [...guessEntries].sort((a, b) => a.difference - b.difference);
+
+    if (isMobileLayout) {
+      return (
+        <>
+          {topControls}
+          <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-md">
+            <div className="space-y-3 mt-12">
+              <div className="flyer-box bg-card p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.35em] text-blue-mid">
+                      {language === 'pt'
+                        ? `Ronda ${resolvedRoundIndex + 1} de ${resolvedTotalRounds}`
+                        : `Round ${resolvedRoundIndex + 1} of ${resolvedTotalRounds}`}
+                    </p>
+                    <h1 className="font-ad text-2xl uppercase text-blue-deep">
+                      {t('Showdown Results', 'Resultados da ronda')}
+                    </h1>
+                  </div>
+                  <div className="promo-badge rounded-full bg-blue-mid px-3 py-2 text-card shadow-flyer">
+                    <Sparkles className="h-4 w-4" />
+                  </div>
+                </div>
+                <div className="flyer-panel bg-blue-light/15 px-4 py-3 text-center">
+                  <p className="text-[10px] uppercase tracking-[0.4em] text-blue-mid">
+                    {t('Real Price', 'Preço real')}
+                  </p>
+                  <p className="font-ad text-3xl uppercase text-blue-deep">€{roundResults.realPrice.toFixed(2)}</p>
+                  {roundResults.productStore && (
+                    <p className="mt-1 text-sm text-blue-deep/80">
+                      {t('From', 'Loja')} {roundResults.productStore}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {sortedGuessEntries.map((entry) => {
+                    const directionLabel =
+                      entry.signedDifference === 0
+                        ? t('Exact', 'Certo')
+                        : entry.signedDifference > 0
+                        ? t('Over', 'Acima')
+                        : t('Under', 'Abaixo');
+                    return (
+                      <div
+                        key={`mobile-result-${entry.playerName}-${entry.guess}`}
+                        className="flex items-center justify-between rounded-md border border-blue-deep/40 bg-card px-3 py-2 text-sm"
+                      >
+                        <div>
+                          <p className="font-display font-semibold text-blue-deep">{entry.playerName}</p>
+                          <p className="text-xs text-blue-deep/70">
+                            {directionLabel}
+                            {entry.signedDifference === 0
+                              ? ''
+                              : ` €${Math.abs(entry.signedDifference).toFixed(2)}`}
+                          </p>
+                        </div>
+                        <span className="font-ad text-lg text-blue-deep">€{entry.guess.toFixed(2)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="space-y-2">
+                  {!isReady ? (
+                    <button
+                      onClick={handleMarkReady}
+                      className="coupon-button w-full bg-blue-mid px-5 py-3 text-card"
+                    >
+                      {t('Ready for next round', 'Pronto para a próxima ronda')}
+                    </button>
+                  ) : (
+                    <div className="text-center text-sm font-semibold uppercase tracking-[0.3em] text-blue-mid">
+                      {t('Ready! Waiting for others...', 'Pronto! A aguardar os restantes...')}
+                    </div>
+                  )}
+                  <button
+                    onClick={handleLeaveLobby}
+                    disabled={isLeaving}
+                    className={`coupon-button w-full bg-card px-5 py-3 text-sm ${
+                      isLeaving ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
+                    }`}
+                  >
+                    {isLeaving ? t('Leaving...', 'A sair...') : t('Leave Game', 'Sair do jogo')}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flyer-box bg-card p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.4em] text-blue-mid">
+                  {t('Leaderboard', 'Classificação')}
+                </p>
+                <div className="mt-3 space-y-2">
+                  {[...lobby.players]
+                    .sort((a, b) => b.score - a.score)
+                    .map((player, index) => (
+                      <div
+                        key={`m-lead-${player.id}`}
+                        className={`flex items-center justify-between rounded-md border-2 px-4 py-2 text-sm shadow-flyer-xs ${
+                          index === 0 ? 'border-blue-deep bg-blue-light/40' : 'border-blue-deep/60 bg-card'
+                        }`}
+                      >
+                        <span className="font-display text-blue-deep">
+                          {index === 0 && '🥇 '}
+                          {index === 1 && '🥈 '}
+                          {index === 2 && '🥉 '}
+                          {player.name}
+                        </span>
+                        <span className="font-ad text-blue-deep">{player.score} pts</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+          </StageBackground>
+        </>
+      );
+    }
     return (
       <>
         <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl">
@@ -1287,7 +1389,7 @@ export default function LobbyPage() {
                   }`}
                 >
                   <DoorOpen className="h-4 w-4" />
-                  {isLeaving ? t('Leaving...', 'A sair...') : t('Leave Show', 'Sair do show')}
+                  {isLeaving ? t('Leaving...', 'A sair...') : t('Leave Game', 'Sair do jogo')}
                 </button>
               </div>
 
@@ -1463,7 +1565,6 @@ export default function LobbyPage() {
 
           </div>
         </StageBackground>
-        {floatingSettings}
       </>
     );
   }
@@ -1472,10 +1573,10 @@ export default function LobbyPage() {
   if (lobby.status === 'finished' && finalLeaderboard) {
     return (
       <>
-        <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-4xl">
+        {topControls}
+        <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-md">
           {wheelOverlay}
-          {settingsHeader}
-          <div className="flyer-box bg-card p-8 text-center">
+          <div className="flyer-box bg-card p-3 space-y-2.5 mt-12">
             <div className="flex flex-col items-center gap-3">
               <div className="promo-badge rounded-full bg-blue-mid text-card shadow-flyer">
                 <Trophy className="h-10 w-10" />
@@ -1531,15 +1632,144 @@ export default function LobbyPage() {
             </div>
           </div>
         </StageBackground>
-        {floatingSettings}
       </>
     );
   }
 
   // Playing - Guessing phase
   if (currentProduct) {
+    if (isMobileLayout) {
+      const productImageSize = 140;
+      return (
+        <>
+          {topControls}
+          <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-md">
+            {wheelOverlay}
+            <div className="flyer-box bg-card p-3 space-y-2.5 mt-12">
+              <div className="flex items-start justify-between gap-2">
+                <div className="space-y-0.5">
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.35em] text-blue-mid">
+                    {language === 'pt'
+                      ? `Ronda ${resolvedRoundIndex + 1} / ${resolvedTotalRounds}`
+                      : `Round ${resolvedRoundIndex + 1} / ${resolvedTotalRounds}`}
+                  </p>
+        
+                </div>
+                <div className="promo-badge rounded-full bg-blue-mid px-3 py-1.5 text-card shadow-flyer">
+                  <Clock3 className="h-4 w-4" />
+                  <span className="ml-1.5 text-base leading-none">{timeLeft}s</span>
+                </div>
+              </div>
+
+              <div className="flex justify-center">
+                <div className="rounded-md border-2 border-blue-deep bg-card p-1.5 shadow-flyer-sm">
+                  <ProductImage
+                    src={currentProduct.imageUrl}
+                    alt={currentProduct.name}
+                    width={productImageSize}
+                    height={productImageSize}
+                    className="h-[140px] w-[140px] rounded-md border-2 border-blue-deep bg-blue-light/30 p-1.5 shadow-flyer-xs object-contain"
+                  />
+                </div>
+              </div>
+
+              <div className="flyer-panel bg-card px-2.5 py-2">
+                <p className="text-[9px] font-semibold uppercase tracking-[0.35em] text-blue-mid">
+                  {t('Product', 'Produto')}
+                </p>
+                <h3 className="mt-1 font-ad text-base uppercase leading-snug text-blue-deep">{currentProduct.name}</h3>
+                {currentProduct.store && (
+                  <p className="text-[11px] font-display text-blue-deep/70">{currentProduct.store}</p>
+                )}
+                {currentProduct.description && (
+                  <p className="text-[11px] leading-snug text-blue-deep/70">{currentProduct.description}</p>
+                )}
+              </div>
+
+              {error && (
+                <div className="flyer-panel border-red-500 bg-red-100 px-2.5 py-2 text-[11px] font-semibold text-red-700">
+                  {error}
+                </div>
+              )}
+              <br></br>
+              <h2 className="font-ad text-lg uppercase leading-tight text-blue-deep">
+                {t('Guess that price!', 'Adivinha esse preço!')}
+              </h2>
+
+              <div className="flex items-stretch gap-2">
+                <div className="flyer-panel flex-1 bg-blue-light/10 px-2.5 py-2">
+                  <label className="text-[9px] font-semibold uppercase tracking-[0.35em] text-blue-mid">
+                    {t('Your Guess (€)', 'O teu palpite (€)')}
+                  </label>
+                  <input
+                    type="number"
+                    value={guess}
+                    onChange={(e) => setGuess(e.target.value)}
+                    placeholder="0.00"
+                    step="0.01"
+                    min="0"
+                    className="mt-1 w-full bg-transparent font-ad text-xl uppercase leading-tight text-blue-deep placeholder:text-blue-deep/30 focus:outline-none"
+                  />
+                </div>
+                <button
+                  onClick={handleSubmitGuess}
+                  disabled={!guess}
+                  className={`coupon-button self-stretch px-4 text-sm ${
+                    !guess ? 'cursor-not-allowed opacity-60' : 'bg-blue-mid text-card hover:-translate-y-1'
+                  }`}
+                >
+                  {hasSubmitted ? t('Update', 'Atualizar') : t('Submit', 'Submeter')}
+                </button>
+              </div>
+
+              <div className="flyer-panel bg-blue-light/10 px-2.5 py-2">
+                <div className="flex items-center justify-between text-[9px] font-semibold uppercase tracking-[0.3em] text-blue-mid">
+                  <span>{t('Contestants', 'Concorrentes')}</span>
+                  <span className="font-ad text-[11px] uppercase text-blue-deep">{lobby.players.length}</span>
+                </div>
+                <div className="mt-1.5 max-h-16 space-y-1 overflow-y-auto">
+                  {lobby.players.map((player) => {
+                    const hasGuess = lobby.guesses[player.id] !== undefined;
+                    return (
+                      <div
+                        key={`mob-player-${player.id}`}
+                        className={`flex items-center justify-between rounded border border-blue-deep/50 px-2 py-1 text-[12px] font-semibold ${
+                          hasGuess ? 'bg-blue-light/40 text-blue-deep' : 'bg-card text-blue-deep'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="truncate">{player.name}</span>
+                          {player.isHost && (
+                            <span className="text-[9px] font-ad uppercase tracking-[0.3em] text-blue-mid">
+                              {t('Host', 'Host')}
+                            </span>
+                          )}
+                        </div>
+                        {hasGuess && <span className="font-ad text-sm text-blue-deep">✓</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <button
+                onClick={handleLeaveLobby}
+                disabled={isLeaving}
+                className={`coupon-button w-full bg-card px-4 py-2 text-sm ${
+                  isLeaving ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
+                }`}
+              >
+                {isLeaving ? t('Leaving...', 'A sair...') : t('Leave Game', 'Sair do jogo')}
+              </button>
+            </div>
+          </StageBackground>
+        </>
+      );
+    }
+
     return (
       <>
+        {topControls}
         <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl">
           {wheelOverlay}
           {settingsHeader}
@@ -1614,7 +1844,7 @@ export default function LobbyPage() {
                       !guess ? 'cursor-not-allowed opacity-60' : 'bg-blue-mid text-card hover:-translate-y-1'
                     }`}
                   >
-                    {hasSubmitted ? t('Update Guess', 'Atualizar palpite') : t('Lock Guess', 'Bloquear palpite')}
+                    {hasSubmitted ? t('Update Guess', 'Atualizar palpite') : t('Submit guess', 'Submeter palpite')}
                   </button>
                 </div>
                 {hasSubmitted && (
@@ -1660,18 +1890,122 @@ export default function LobbyPage() {
                   isLeaving ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
                 }`}
               >
-                {isLeaving ? t('Leaving...', 'A sair...') : t('Leave Show', 'Sair do show')}
+                {isLeaving ? t('Leaving...', 'A sair...') : t('Leave Game', 'Sair do jogo')}
               </button>
             </div>
           </div>
         </StageBackground>
-        {floatingSettings}
       </>
     );
   }
 
   // Waiting screen (default)
   if (lobby.status === 'waiting') {
+    if (isMobileLayout) {
+      return (
+        <>
+          {topControls}
+          <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-md">
+            <div className="flyer-box bg-card p-4 space-y-4 mt-12">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.4em] text-blue-mid">
+                  {t('Lobby Code', 'Código do lobby')}
+                </p>
+                <LobbyCodeBadge code={lobby.code} onCopy={copyLobbyCode} />
+              </div>
+              <p className="font-display text-sm text-blue-deep/80">
+                {t('Waiting for players…', 'À espera de jogadores…')}
+              </p>
+              <div className="flyer-panel bg-blue-light/15 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.35em] text-blue-mid">
+                  {t('Players', 'Jogadores')}
+                </p>
+                <div className="mt-2 space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {lobby.players.map((player) => (
+                    <div
+                      key={`waiting-mobile-${player.id}`}
+                      className="flex items-center justify-between rounded-md border border-blue-deep/40 bg-card px-3 py-2 text-sm"
+                    >
+                      <span>{player.name}</span>
+                      {player.isHost && (
+                        <span className="text-[10px] font-ad uppercase tracking-[0.3em] text-blue-mid">
+                          {t('Host', 'Host')}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {currentPlayer?.isHost && (
+                <div className="flyer-panel bg-blue-light/10 px-4 py-3 space-y-3">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.35em] text-blue-mid">
+                      {t('Rounds', 'Rondas')}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {roundOptions.map((option) => (
+                        <button
+                          key={`m-rou-${option}`}
+                          onClick={() => handleLobbySettingsChange({ roundsTotal: option })}
+                          className={`label-chip px-3 py-2 ${
+                            lobby.roundsTotal === option ? 'bg-blue-light text-blue-deep' : 'bg-card text-blue-deep/80'
+                          }`}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.35em] text-blue-mid">
+                      {t('Store', 'Loja')}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {productSourceOptions.map((option) => (
+                        <button
+                          key={`m-src-${option.value}`}
+                          onClick={() => handleLobbySettingsChange({ productSource: option.value })}
+                          className={`label-chip px-3 py-2 ${
+                            lobby.productSource === option.value ? 'bg-blue-light text-blue-deep' : 'bg-card text-blue-deep/80'
+                          }`}
+                        >
+                          {language === 'pt' ? option.label.pt : option.label.en}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {currentPlayer?.isHost ? (
+                <button
+                  onClick={handleStartGame}
+                  disabled={lobby.players.length < 1 || isStarting}
+                  className={`coupon-button w-full bg-blue-mid px-5 py-3 text-card ${
+                    lobby.players.length < 1 || isStarting ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
+                  }`}
+                >
+                  {isStarting ? t('Starting...', 'A iniciar...') : t('Start Game', 'Começar jogo')}
+                </button>
+              ) : (
+                <div className="text-center text-sm text-blue-deep/80">
+                  {t('Waiting for host to start the game.', 'À espera que o anfitrião comece o jogo.')}
+                </div>
+              )}
+              <button
+                onClick={handleLeaveLobby}
+                disabled={isLeaving}
+                className={`coupon-button w-full bg-card px-5 py-3 text-sm ${
+                  isLeaving ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
+                }`}
+              >
+                {isLeaving ? t('Leaving...', 'A sair...') : t('Leave Lobby', 'Sair do lobby')}
+              </button>
+            </div>
+          </StageBackground>
+        </>
+      );
+    }
     return (
       <>
         <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl">
@@ -1837,7 +2171,6 @@ export default function LobbyPage() {
             <SafeExitButton onClick={handleSafeReturn} label={t('Exit to Main Menu', 'Voltar ao menu principal')} />
           </div>
         </StageBackground>
-        {floatingSettings}
       </>
     );
   }

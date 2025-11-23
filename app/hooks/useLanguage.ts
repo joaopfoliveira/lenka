@@ -20,12 +20,26 @@ export function useLanguage() {
 
   useEffect(() => {
     setLanguageState(loadInitialLanguage());
+    const handleSync = () => {
+      setLanguageState(loadInitialLanguage());
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', handleSync);
+      window.addEventListener('lenka-language-change', handleSync as EventListener);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('storage', handleSync);
+        window.removeEventListener('lenka-language-change', handleSync as EventListener);
+      }
+    };
   }, []);
 
   const setLanguage = useCallback((lang: Language) => {
     setLanguageState(lang);
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
+      window.dispatchEvent(new Event('lenka-language-change'));
     }
   }, []);
 

@@ -1,4 +1,5 @@
 import { Product } from './productTypes';
+import { productCollection } from '@/data/products';
 import { fetchRandomKuantoKustaProductsAPI } from './fetchers/kuantokusta-api.fetcher';
 import { fetchRandomTemuProducts } from './fetchers/temu.fetcher';
 import { fetchRandomDecathlonProducts } from './fetchers/decathlon.fetcher';
@@ -290,6 +291,34 @@ class GameManager {
       let kkProducts: Product[] = [];
       let temuProducts: Product[] = [];
       let decathlonProducts: Product[] = [];
+      const combineAll = () => [...kkProducts, ...temuProducts, ...decathlonProducts];
+      const ensureMinCount = async (providers: Array<'kuantokusta' | 'temu' | 'decathlon'>, target: number) => {
+        let attempts = 0;
+        let current = combineAll().length;
+        while (current < target && attempts < 2) {
+          const remaining = target - current;
+          for (const provider of providers) {
+            const need = target - combineAll().length;
+            if (need <= 0) break;
+            try {
+              if (provider === 'kuantokusta') {
+                const extra = await fetchRandomKuantoKustaProductsAPI(need);
+                kkProducts = kkProducts.concat(extra);
+              } else if (provider === 'temu') {
+                const extra = await fetchRandomTemuProducts(need);
+                temuProducts = temuProducts.concat(extra);
+              } else if (provider === 'decathlon') {
+                const extra = await fetchRandomDecathlonProducts(need);
+                decathlonProducts = decathlonProducts.concat(extra);
+              }
+            } catch (err) {
+              console.warn(`⚠️ Retry fetch failed for ${provider}:`, err);
+            }
+          }
+          current = combineAll().length;
+          attempts += 1;
+        }
+      };
       
       if (lobby.productSource === 'mixed') {
         // Split products between KuantoKusta, Temu and Decathlon
@@ -319,24 +348,36 @@ class GameManager {
         [kkProducts, temuProducts, decathlonProducts] = await Promise.all(fetchPromises);
         
         console.log(`✅ [SERVER] Mixed sources -> KK=${kkProducts.length}, Temu=${temuProducts.length}, Decathlon=${decathlonProducts.length}`);
+        if (combineAll().length < lobby.roundsTotal) {
+          await ensureMinCount(providers, lobby.roundsTotal);
+        }
       } else if (lobby.productSource === 'kuantokusta') {
         // Fetch only from KuantoKusta
         console.log(`🛒 [SERVER] Fetching ${lobby.roundsTotal} from KuantoKusta only...`);
         kkProducts = await fetchRandomKuantoKustaProductsAPI(lobby.roundsTotal);
         console.log(`✅ [SERVER] Got ${kkProducts.length} from KuantoKusta`);
+        if (kkProducts.length < lobby.roundsTotal) {
+          await ensureMinCount(['kuantokusta'], lobby.roundsTotal);
+        }
       } else if (lobby.productSource === 'temu') {
         // Fetch only from Temu
         console.log(`🛒 [SERVER] Fetching ${lobby.roundsTotal} from Temu only...`);
         temuProducts = await fetchRandomTemuProducts(lobby.roundsTotal);
         console.log(`✅ [SERVER] Got ${temuProducts.length} from Temu`);
+        if (temuProducts.length < lobby.roundsTotal) {
+          await ensureMinCount(['temu'], lobby.roundsTotal);
+        }
       } else if (lobby.productSource === 'decathlon') {
         console.log(`🛒 [SERVER] Fetching ${lobby.roundsTotal} from Decathlon only...`);
         decathlonProducts = await fetchRandomDecathlonProducts(lobby.roundsTotal);
         console.log(`✅ [SERVER] Got ${decathlonProducts.length} from Decathlon`);
+        if (decathlonProducts.length < lobby.roundsTotal) {
+          await ensureMinCount(['decathlon'], lobby.roundsTotal);
+        }
       }
       
       // Combine and shuffle products
-      const allProducts = [...kkProducts, ...temuProducts, ...decathlonProducts];
+      const allProducts = combineAll();
       lobby.products = allProducts.sort(() => Math.random() - 0.5).slice(0, lobby.roundsTotal);
       
       // Validate we have enough products
