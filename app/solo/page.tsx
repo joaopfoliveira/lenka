@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Clock3, Home, Sparkles } from 'lucide-react';
 import ProductImage from '@/app/components/ProductImage';
-import { productCollection } from '@/data/products';
 import { type Product } from '@/lib/productTypes';
 import TopControls from '@/app/components/TopControls';
 import { useSfx } from '@/app/components/sfx/SfxProvider';
@@ -34,22 +33,6 @@ function Stage({ children }: { children: React.ReactNode }) {
   );
 }
 
-function pickProducts(source: Product['source'] | 'mixed', rounds: number) {
-  const all = productCollection.products;
-  const pool =
-    source === 'mixed'
-      ? all
-      : all.filter((p) => p.source === source);
-  const usePool = pool.length > 0 ? pool : all;
-  const shuffled = [...usePool].sort(() => Math.random() - 0.5);
-  const needed = rounds;
-  const selected: Product[] = [];
-  while (selected.length < needed) {
-    selected.push(shuffled[selected.length % shuffled.length]);
-  }
-  return selected.slice(0, needed);
-}
-
 export default function SoloPage() {
   const router = useRouter();
   const { playTick, playDing, playBuzzer } = useSfx();
@@ -63,6 +46,9 @@ export default function SoloPage() {
   const [timeLeft, setTimeLeft] = useState(roundSeconds);
   const [roundsTotal, setRoundsTotal] = useState(DEFAULT_ROUNDS);
   const [source, setSource] = useState<typeof DEFAULT_SOURCE>(DEFAULT_SOURCE);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [showSummary, setShowSummary] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const [isMobileLayout, setIsMobileLayout] = useState(false);
   const [runId, setRunId] = useState(0);
@@ -89,19 +75,48 @@ export default function SoloPage() {
   );
 
   useEffect(() => {
-    const storedRounds = parseInt(localStorage.getItem('soloRounds') || `${DEFAULT_ROUNDS}`, 10);
-    const storedSource = (localStorage.getItem('soloSource') as typeof DEFAULT_SOURCE) || DEFAULT_SOURCE;
-    setRoundsTotal(isNaN(storedRounds) ? DEFAULT_ROUNDS : storedRounds);
-    setSource(storedSource);
-    const picked = pickProducts(storedSource, isNaN(storedRounds) ? DEFAULT_ROUNDS : storedRounds);
-    if (timerRef.current) clearInterval(timerRef.current);
-    setProducts(picked);
-    setRoundIndex(0);
-    setResults([]);
-    setGuess('');
-    setLockedGuess(null);
-    setShowResult(false);
-    setTimeLeft(roundSeconds);
+    let cancelled = false;
+    const load = async () => {
+      const storedRounds = parseInt(localStorage.getItem('soloRounds') || `${DEFAULT_ROUNDS}`, 10);
+      const storedSource = (localStorage.getItem('soloSource') as typeof DEFAULT_SOURCE) || DEFAULT_SOURCE;
+      const resolvedRounds = isNaN(storedRounds) ? DEFAULT_ROUNDS : storedRounds;
+      const resolvedSource = storedSource || DEFAULT_SOURCE;
+      setRoundsTotal(resolvedRounds);
+      setSource(resolvedSource);
+      setIsLoadingProducts(true);
+      setLoadError(null);
+
+      try {
+        const res = await fetch(`/api/solo-products?rounds=${resolvedRounds}&source=${resolvedSource}`);
+        if (!res.ok) {
+          throw new Error(`Failed to fetch products (${res.status})`);
+        }
+        const data = (await res.json()) as { products: Product[] };
+        if (cancelled) return;
+        setProducts(data.products || []);
+      } catch (err: any) {
+        console.error('Failed to load solo products:', err);
+        if (cancelled) return;
+        setLoadError(err?.message || 'Erro ao carregar produtos');
+        setProducts([]);
+      } finally {
+        if (!cancelled) {
+          setIsLoadingProducts(false);
+          if (timerRef.current) clearInterval(timerRef.current);
+          setRoundIndex(0);
+          setResults([]);
+          setGuess('');
+          setLockedGuess(null);
+          setShowResult(false);
+          setTimeLeft(roundSeconds);
+          setShowSummary(false);
+        }
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, [runId]);
 
   useEffect(() => {
@@ -141,7 +156,6 @@ export default function SoloPage() {
 
   const handleNext = () => {
     if (roundIndex + 1 >= roundsTotal) {
-      setRoundIndex(roundsTotal);
       setShowResult(true);
       return;
     }
@@ -152,10 +166,15 @@ export default function SoloPage() {
     setTimeLeft(roundSeconds);
   };
 
-  const finished = roundIndex >= roundsTotal || results.length >= roundsTotal;
+  const finished = showSummary;
   const totalScore = useMemo(() => {
     return results.reduce((sum, r) => sum + Math.max(0, Math.round(100 - r.delta)), 0);
   }, [results]);
+  const getDeltaTone = (delta: number) => {
+    if (delta <= 1) return { color: 'bg-blue-light/60 text-blue-deep', label: t('Spot on', 'Acertaste em cheio') };
+    if (delta <= 5) return { color: 'bg-blue-light/30 text-blue-deep', label: t('Close', 'Quase lá') };
+    return { color: 'bg-red-100 text-red-700', label: t('Wild guess', 'Palpite arriscado') };
+  };
 
   const t = (en: string, pt: string) => (language === 'pt' ? pt : en);
   const handleLeaveSolo = () => {
@@ -269,7 +288,7 @@ export default function SoloPage() {
               {roundIndex + 1 >= roundsTotal ? (
                 <button
                   className="coupon-button flex-1 bg-blue-mid px-4 py-3 text-card hover:-translate-y-1"
-                  onClick={() => setRoundIndex(roundsTotal)}
+                  onClick={() => setShowSummary(true)}
                 >
                   {t('See final results', 'Ver resultados finais')}
                 </button>
@@ -390,34 +409,67 @@ export default function SoloPage() {
   };
 
   const renderSummary = () => (
-    <div className="flyer-box bg-card p-6 space-y-4">
+    <div className="flyer-box bg-card p-4 space-y-3 sm:p-6">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-blue-mid">{t('Solo Results', 'Resultados do solo')}</p>
-          <h2 className="font-ad text-3xl uppercase text-blue-deep">{t('Show complete', 'Show concluído')}</h2>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.35em] text-blue-mid">{t('Solo Results', 'Resultados do solo')}</p>
+          <h2 className="font-ad text-xl uppercase text-blue-deep sm:text-2xl">{t('Game complete', 'Jogo concluído')}</h2>
         </div>
-        <div className="promo-badge rounded-full bg-blue-mid px-4 py-3 text-card shadow-flyer">
-
-          <span className="ml-2 text-xl">{totalScore} pts</span>
+        <div className="promo-badge rounded-full bg-blue-mid px-3 py-2 text-card shadow-flyer">
+          <span className="ml-1 text-base sm:text-xl">{totalScore} pts</span>
         </div>
       </div>
+      <div className="text-[11px] text-blue-deep/70">
+        <p>{t('Green dot is the real price. Yellow is your guess.', 'O ponto verde é o preço real. O amarelo é o teu palpite.')}</p>
+      </div>
       <div className="space-y-2">
-        {results.map((res, idx) => (
-          <div key={`${res.product.id}-${idx}`} className="flex items-center justify-between rounded-md border border-blue-deep/40 bg-blue-light/20 px-3 py-2">
-            <div>
-              <p className="font-display font-semibold text-blue-deep">
-                {language === 'pt' ? `Ronda ${idx + 1}` : `Round ${idx + 1}`}
-              </p>
-              <p className="text-sm text-blue-deep/80">{res.product.name}</p>
-            </div>
-            <div className="text-right">
-              <p className="font-ad text-base uppercase text-blue-deep">€{res.guess.toFixed(2)}</p>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-blue-mid">
-                {t('Price', 'Preço')} €{res.price.toFixed(2)} • {t('Δ', 'Δ')} €{res.delta.toFixed(2)}
-              </p>
-            </div>
-          </div>
-        ))}
+        {(() => {
+          const maxValue = Math.max(
+            1,
+            ...results.map((r) => Math.max(r.price, r.guess))
+          );
+          return results.map((res, idx) => {
+            const realPos = Math.min(100, (res.price / maxValue) * 100);
+            const guessPos = Math.min(100, (res.guess / maxValue) * 100);
+            const guessColor =
+              Math.abs(res.guess - res.price) <= 1
+                ? 'bg-green-500/85 text-card'
+                : Math.abs(res.guess - res.price) <= 5
+                ? 'bg-yellow-400/85 text-blue-deep'
+                : 'bg-red-500/85 text-card';
+            return (
+              <div
+                key={`${res.product.id}-${idx}`}
+                className="rounded-md border border-blue-deep/30 bg-blue-light/10 px-3 py-2 shadow-flyer-xs"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.35em] text-blue-mid">
+                      {language === 'pt' ? `Ronda ${idx + 1}` : `Round ${idx + 1}`}
+                    </p>
+                    <p className="font-ad text-[13px] uppercase text-blue-deep line-clamp-1">{res.product.name}</p>
+                  </div>
+                </div>
+                <div className="relative mt-3 h-2 rounded-full bg-blue-light/40">
+                  <span
+                    className="absolute -top-4 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full bg-green-600/85 text-[10px] font-semibold text-card shadow-flyer-xs"
+                    style={{ left: `${realPos}%` }}
+                    title={t('Real price', 'Preço real')}
+                  >
+                    €{res.price.toFixed(2)}
+                  </span>
+                  <span
+                    className={`absolute -top-4 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full text-[10px] font-semibold shadow-flyer-xs ${guessColor}`}
+                    style={{ left: `${guessPos}%` }}
+                    title={t('Your guess', 'O teu palpite')}
+                  >
+                    €{res.guess.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            );
+          });
+        })()}
       </div>
       <div className="flex flex-col gap-2 sm:flex-row">
         <button
@@ -449,7 +501,32 @@ export default function SoloPage() {
         <h1 className="font-ad text-2xl uppercase text-blue-deep">{t('Solo Mode', 'Modo solo')}</h1>
       </div>
 
-      {!finished ? renderCurrent() : renderSummary()}
+      {isLoadingProducts && (
+        <div className="flyer-box bg-card p-6 text-center">
+          <p className="font-ad text-xl uppercase text-blue-deep">{t('Loading products...', 'A carregar produtos...')}</p>
+          <p className="mt-2 text-sm text-blue-deep/80">
+            {t('Fetching items from the providers you selected.', 'A buscar artigos das fontes que escolheste.')}
+          </p>
+        </div>
+      )}
+
+      {!isLoadingProducts && !products.length && (
+        <div className="flyer-box bg-card p-6 text-center">
+          <p className="font-ad text-xl uppercase text-red-700">{t('Failed to load products', 'Falha ao carregar produtos')}</p>
+          {loadError && <p className="mt-2 text-sm text-blue-deep/80">{loadError}</p>}
+          <div className="mt-4 flex justify-center">
+            <button
+              className="coupon-button bg-blue-mid px-4 py-2 text-card hover:-translate-y-1"
+              onClick={() => setRunId((prev) => prev + 1)}
+            >
+              {t('Try again', 'Tentar novamente')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!isLoadingProducts && products.length > 0 && (!finished ? renderCurrent() : renderSummary())}
+
       <div className="mt-6 flex justify-center">
         <button
           className="coupon-button inline-flex items-center gap-2 bg-card px-4 py-3 text-sm hover:-translate-y-1"
