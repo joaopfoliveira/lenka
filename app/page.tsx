@@ -398,7 +398,7 @@ const handleStartSolo = () => {
           <div className="flex flex-col items-center text-center">
             <Logo width={260} height={104} className="mb-3 max-w-full" />
             <h1 className="font-ad text-lg uppercase leading-snug text-blue-deep">
-              {t('Guess the price, steal the spotlight.', 'Adivinha o preço e conquista os holofotes.')}
+              {t('Guess the price, steal the spotlight.', 'Adivinha o preço e prova que és o melhor capitalista!')}
             </h1>
           </div>
         ) : (
@@ -409,7 +409,7 @@ const handleStartSolo = () => {
                 {t('Welcome to Lenka', 'Bem-vindo à Lenka')}
               </p>
               <h1 className="mt-2 font-ad text-xl uppercase leading-snug text-blue-deep sm:text-2xl">
-                {t('Guess the price, steal the spotlight.', 'Adivinha o preço e conquista os holofotes.')}
+                {t('Guess the price, steal the spotlight.', 'Adivinha o preço e prova que és o melhor capitalista!')}
               </h1>
               <p className="mt-3 font-display text-sm text-blue-deep/80 sm:text-base">
                 {t(

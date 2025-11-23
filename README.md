@@ -24,7 +24,7 @@ Lenka is a real-time multiplayer game where players compete to guess the prices 
 npm install
 ```
 
-## 🏃 Running the Game
+## Running the Game
 
 Start the development server:
 

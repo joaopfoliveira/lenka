@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Camada_1" data-name="Camada 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 76.24 81.04">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #fffef3;
+        font-family: RubikItalic-SemiBoldItalic, Rubik;
+        font-size: 21.98px;
+        font-style: italic;
+        font-variation-settings: 'wght' 600;
+        font-weight: 600;
+      }
+
+      .cls-2, .cls-3 {
+        fill: #3f7f33;
+      }
+
+      .cls-3 {
+        stroke: #badbba;
+        stroke-miterlimit: 10;
+        stroke-width: .75px;
+      }
+    </style>
+  </defs>
+  <polygon class="cls-2" points="33.98 27.59 47.62 9.03 48.19 32.05 70.74 40.15 48.44 48.53 48.3 72 34.26 53.35 11.25 60.37 24.6 41.27 10.85 21.68 33.98 27.59"/>
+  <polygon class="cls-3" points="33.98 27.59 47.62 9.03 48.19 32.05 70.74 40.15 48.44 48.53 48.3 72 34.26 53.35 11.25 60.37 24.6 41.27 10.85 21.68 33.98 27.59"/>
+  <text class="cls-1" transform="translate(30.73 50.2) rotate(-17.78)"><tspan x="0" y="0">€</tspan></text>
+</svg>
