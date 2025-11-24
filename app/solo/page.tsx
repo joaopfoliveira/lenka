@@ -234,45 +234,44 @@ export default function SoloPage() {
             {currentProduct.description && (
               <p className="text-[11px] leading-snug text-blue-deep/70">{currentProduct.description}</p>
             )}
-        </div>
-
-        {!showResult && (
-          <div className="space-y-2">
-            <div className="flex items-stretch gap-2">
-              <div className="flyer-panel flex-1 bg-blue-light/10 px-2.5 py-2">
-                <label className="text-[9px] font-semibold uppercase tracking-[0.35em] text-blue-mid">
-                  {t('Your Guess (€)', 'O teu palpite (€)')}
-                </label>
-                <input
-                  type="number"
-                  value={guess}
-                  onChange={(e) => setGuess(e.target.value)}
-                  placeholder="0.00"
-                  step="0.01"
-                  min="0"
-                  className="mt-1 w-full bg-transparent font-ad text-xl uppercase leading-tight text-blue-deep placeholder:text-blue-deep/30 focus:outline-none"
-                />
-              </div>
-              <button
-                onClick={() => handleLock()}
-                disabled={lockedGuess !== null || !guess}
-                className={`coupon-button self-stretch px-4 text-sm ${
-                  lockedGuess !== null || !guess ? 'cursor-not-allowed opacity-60' : 'bg-blue-mid text-card hover:-translate-y-1'
-                }`}
-              >
-                {t('Lock', 'Bloquear')}
-              </button>
-            </div>
-            <div className="flex gap-2">
-              <button
-                className="coupon-button flex-1 bg-card px-4 py-2 text-sm hover:-translate-y-1"
-                onClick={() => router.push('/')}
-              >
-                {t('Leave game', 'Sair do jogo')}
-              </button>
-            </div>
           </div>
-        )}
+
+          {!showResult && (
+            <div className="space-y-2">
+              <div className="flex items-stretch gap-2">
+                <div className="flyer-panel flex-1 bg-blue-light/10 px-2.5 py-2">
+                  <label className="text-[9px] font-semibold uppercase tracking-[0.35em] text-blue-mid">
+                    {t('Your Guess (€)', 'O teu palpite (€)')}
+                  </label>
+                  <input
+                    type="number"
+                    value={guess}
+                    onChange={(e) => setGuess(e.target.value)}
+                    placeholder="0.00"
+                    step="0.01"
+                    min="0"
+                    className="mt-1 w-full bg-transparent font-ad text-xl uppercase leading-tight text-blue-deep placeholder:text-blue-deep/30 focus:outline-none"
+                  />
+                </div>
+                <button
+                  onClick={() => handleLock()}
+                  disabled={lockedGuess !== null || !guess}
+                  className={`coupon-button self-stretch px-4 text-sm ${lockedGuess !== null || !guess ? 'cursor-not-allowed opacity-60' : 'bg-blue-mid text-card hover:-translate-y-1'
+                    }`}
+                >
+                  {t('Lock', 'Bloquear')}
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  className="coupon-button flex-1 bg-card px-4 py-2 text-sm hover:-translate-y-1"
+                  onClick={() => router.push('/')}
+                >
+                  {t('Leave game', 'Sair do jogo')}
+                </button>
+              </div>
+            </div>
+          )}
 
           {showResult && lockedGuess !== null && (
             <div className="flyer-panel bg-blue-light/15 px-4 py-3">
@@ -290,38 +289,36 @@ export default function SoloPage() {
               <p className="mt-2 text-sm font-semibold uppercase tracking-[0.35em] text-blue-mid">
                 {t('Difference', 'Diferença')}: €{Math.abs(lockedGuess - currentProduct.price).toFixed(2)}
               </p>
+              <div className="flex gap-2 mt-3">
+                {roundIndex + 1 >= roundsTotal ? (
+                  <button
+                    className="coupon-button flex-1 bg-blue-mid px-4 py-3 text-card hover:-translate-y-1"
+                    onClick={() => setShowSummary(true)}
+                  >
+                    {t('See final results', 'Ver resultados finais')}
+                  </button>
+                ) : (
+                  <button
+                    className="coupon-button flex-1 bg-blue-mid px-4 py-3 text-card hover:-translate-y-1"
+                    onClick={handleNext}
+                  >
+                    {t('Next product', 'Próximo produto')}
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
-        {showResult && (
-          <div className="space-y-2">
-            <div className="flex gap-2">
-              {roundIndex + 1 >= roundsTotal ? (
-                <button
-                  className="coupon-button flex-1 bg-blue-mid px-4 py-3 text-card hover:-translate-y-1"
-                  onClick={() => setShowSummary(true)}
-                >
-                  {t('See final results', 'Ver resultados finais')}
-                </button>
-              ) : (
-                <button
-                  className="coupon-button flex-1 bg-blue-mid px-4 py-3 text-card hover:-translate-y-1"
-                  onClick={handleNext}
-                >
-                  {t('Next product', 'Próximo produto')}
-                </button>
-              )}
-            </div>
+          {showResult && (
             <div className="flex gap-2">
               <button
-                className="coupon-button flex-1 bg-card px-4 py-3 text-sm hover:-translate-y-1"
+                className="coupon-button flex-1 bg-card px-4 py-3 text-sm hover:-translate-y-1 border-2 border-blue-deep shadow-flyer-xs rounded-md"
                 onClick={() => router.push('/')}
               >
                 {t('Leave game', 'Sair do jogo')}
               </button>
             </div>
-          </div>
-        )}
+          )}
         </div>
       );
     }
@@ -377,9 +374,8 @@ export default function SoloPage() {
             <button
               onClick={() => handleLock()}
               disabled={lockedGuess !== null}
-              className={`coupon-button px-6 py-3 text-base ${
-                lockedGuess !== null ? 'cursor-not-allowed opacity-60' : 'bg-blue-mid text-card hover:-translate-y-1'
-              }`}
+              className={`coupon-button px-6 py-3 text-base ${lockedGuess !== null ? 'cursor-not-allowed opacity-60' : 'bg-blue-mid text-card hover:-translate-y-1'
+                }`}
             >
               {t('Lock Guess', 'Bloquear palpite')}
             </button>
@@ -403,33 +399,33 @@ export default function SoloPage() {
               {t('Difference', 'Diferença')}: €{Math.abs(lockedGuess - currentProduct.price).toFixed(2)}
             </p>
             <div className="flex gap-2">
-              <button
-                className="coupon-button flex-1 bg-card px-4 py-2 text-sm hover:-translate-y-1"
-                onClick={() => router.push('/')}
-              >
-                {t('Leave game', 'Sair do jogo')}
-              </button>
+              {roundIndex + 1 >= roundsTotal ? (
+                <button
+                  className="coupon-button flex-1 bg-blue-mid px-4 py-3 text-card hover:-translate-y-1"
+                  onClick={() => setShowSummary(true)}
+                >
+                  {t('See final results', 'Ver resultados finais')}
+                </button>
+              ) : (
+                <button
+                  className="coupon-button flex-1 bg-blue-mid px-4 py-3 text-card hover:-translate-y-1"
+                  onClick={handleNext}
+                >
+                  {t('Next product', 'Próximo produto')}
+                </button>
+              )}
             </div>
           </div>
         )}
 
         {showResult && (
           <div className="flex gap-2">
-            {roundIndex + 1 >= roundsTotal ? (
-              <button
-                className="coupon-button flex-1 bg-blue-mid px-4 py-3 text-card hover:-translate-y-1"
-                onClick={() => setRoundIndex(roundsTotal)}
-              >
-                {t('See final results', 'Ver resultados finais')}
-              </button>
-            ) : (
-              <button
-                className="coupon-button flex-1 bg-blue-mid px-4 py-3 text-card hover:-translate-y-1"
-                onClick={handleNext}
-              >
-                {t('Next product', 'Próximo produto')}
-              </button>
-            )}
+            <button
+              className="coupon-button flex-1 bg-card px-4 py-2 text-sm hover:-translate-y-1 border-2 border-blue-deep shadow-flyer-xs rounded-md"
+              onClick={() => router.push('/')}
+            >
+              {t('Leave game', 'Sair do jogo')}
+            </button>
           </div>
         )}
       </div>
@@ -452,25 +448,44 @@ export default function SoloPage() {
       </div>
       <div className="space-y-2">
         {(() => {
-          const maxValue = Math.max(
-            1,
-            ...results.map((r) => Math.max(r.price, r.guess))
-          );
           return results.map((res, idx) => {
-            const realPos = Math.min(100, (res.price / maxValue) * 100);
-            const guessPos = Math.min(100, (res.guess / maxValue) * 100);
-            const guessColor =
-              Math.abs(res.guess - res.price) <= 1
-                ? 'bg-green-500/85 text-card'
-                : Math.abs(res.guess - res.price) <= 5
-                ? 'bg-yellow-400/85 text-blue-deep'
-                : 'bg-red-500/85 text-card';
+            // 1. Calculate Relative Scale
+            // Base view radius is the price itself (so range is 0 to 2*price)
+            // If guess is way off, expand radius to fit it
+            const deviation = Math.abs(res.guess - res.price);
+            const viewRadius = Math.max(res.price, deviation * 1.1);
+
+            // Real price is always center (50%)
+            const realPos = 50;
+
+            // Calculate guess position relative to center
+            const diff = res.guess - res.price;
+            let guessPos = 50 + (diff / viewRadius) * 50;
+
+            // Clamp between 5% and 95% to keep inside container
+            guessPos = Math.max(5, Math.min(95, guessPos));
+
+            // 2. Calculate Color Gradient (Green -> Yellow -> Red)
+            // 0% error = 120 hue (Green)
+            // 100% error = 0 hue (Red)
+            const errorPercentage = deviation / res.price;
+            // Cap error at 100% for color calculation (anything >100% error is fully red)
+            const hue = Math.max(0, 120 - (Math.min(1, errorPercentage) * 120));
+
+            const badgeStyle = {
+              backgroundColor: `hsl(${hue}, 85%, 45%)`,
+              color: '#fff',
+            };
+            const lineStyle = {
+              backgroundColor: `hsl(${hue}, 85%, 45%)`,
+            };
+
             return (
               <div
                 key={`${res.product.id}-${idx}`}
-                className="rounded-md border border-blue-deep/30 bg-blue-light/10 px-3 py-2 shadow-flyer-xs"
+                className="rounded-md border border-blue-deep/30 bg-blue-light/10 px-3 py-4 shadow-flyer-xs mt-4"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-6">
                   <div>
                     <p className="text-[10px] uppercase tracking-[0.35em] text-blue-mid">
                       {language === 'pt' ? `Ronda ${idx + 1}` : `Round ${idx + 1}`}
@@ -478,21 +493,39 @@ export default function SoloPage() {
                     <p className="font-ad text-[13px] uppercase text-blue-deep line-clamp-1">{res.product.name}</p>
                   </div>
                 </div>
-                <div className="relative mt-3 h-2 rounded-full bg-blue-light/40">
-                  <span
-                    className="absolute -top-4 flex h-7 w-7 -translate-x-1/2 items-center justify-center rounded-full bg-green-600/85 text-[9px] font-semibold text-card shadow-flyer-xs"
-                    style={{ left: `${realPos}%` }}
-                    title={t('Real price', 'Preço real')}
+
+                {/* Timeline Container */}
+                <div className="relative h-1 w-full rounded-full bg-blue-deep/20 my-8">
+
+                  {/* Real Price (Center, Below) */}
+                  <div
+                    className="absolute top-4 flex -translate-x-1/2 flex-col items-center"
+                    style={{ left: '50%' }}
                   >
-                    €{res.price.toFixed(2)}
-                  </span>
-                  <span
-                    className={`absolute -top-4 flex h-7 w-7 -translate-x-1/2 items-center justify-center rounded-full text-[9px] font-semibold shadow-flyer-xs ${guessColor}`}
+                    <div className="h-3 w-0.5 bg-blue-deep/40 -mt-4 mb-1"></div>
+                    <span
+                      className="whitespace-nowrap rounded-md bg-blue-deep px-2 py-1 text-[10px] font-bold text-card shadow-sm"
+                      title={t('Real price', 'Preço real')}
+                    >
+                      €{res.price.toFixed(2)}
+                    </span>
+                  </div>
+
+                  {/* User Guess (Relative, Above) */}
+                  <div
+                    className="absolute -top-8 flex -translate-x-1/2 flex-col items-center"
                     style={{ left: `${guessPos}%` }}
-                    title={t('Your guess', 'O teu palpite')}
                   >
-                    €{res.guess.toFixed(2)}
-                  </span>
+                    <span
+                      className="whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-bold shadow-sm mb-1"
+                      style={badgeStyle}
+                      title={t('Your guess', 'O teu palpite')}
+                    >
+                      €{res.guess.toFixed(2)}
+                    </span>
+                    <div className="h-3 w-0.5 opacity-50" style={lineStyle}></div>
+                  </div>
+
                 </div>
               </div>
             );
@@ -526,8 +559,8 @@ export default function SoloPage() {
         onOpenSettings={
           isMobileLayout
             ? () => {
-                setShowSettings(true);
-              }
+              setShowSettings(true);
+            }
             : undefined
         }
       />
@@ -541,15 +574,14 @@ export default function SoloPage() {
           <p className="mt-2 text-sm text-blue-deep/80">
             {t('Fetching items from the providers you selected.', 'A buscar artigos das fontes que escolheste.')}
           </p>
-          <div className="flex gap-2">
-            <br/>
+          <div className="mt-6 flex gap-2">
             <button
               className="coupon-button flex-1 bg-card px-4 py-2 text-sm hover:-translate-y-1"
               onClick={() => router.push('/')}
             >
               {t('Cancel', 'Cancelar')}
             </button>
-            </div>
+          </div>
         </div>
       )}
 
@@ -560,9 +592,9 @@ export default function SoloPage() {
           <div className="mt-4 flex justify-center">
             <button
               className="coupon-button bg-blue-mid px-4 py-2 text-card hover:-translate-y-1"
-              onClick={() => setRunId((prev) => prev + 1)}
+              onClick={() => router.push('/')}
             >
-              {t('Try again', 'Tentar novamente')}
+              {t('Back', 'Voltar')}
             </button>
           </div>
         </div>

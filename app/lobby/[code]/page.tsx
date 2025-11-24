@@ -49,68 +49,7 @@ import { ensurePlayerClientId } from '@/app/utils/playerIdentity';
 import TopControls from '@/app/components/TopControls';
 import SfxToggle from '@/app/components/sfx/SfxToggle';
 
-const wheelSegments = [
-  '5€',
-  '10€',
-  '15€',
-  '25€',
-  '35€',
-  '50€',
-  '75€',
-  '100€',
-  '150€',
-  '200€',
-  '250€',
-  '500€',
-];
 
-const wheelColors = [
-  '#FF6FD8',
-  '#FFE066',
-  '#5EEAD4',
-  '#A78BFA',
-  '#FB923C',
-  '#60A5FA',
-];
-
-const wheelGradient = wheelSegments
-  .map((_, index) => {
-    const start = (index / wheelSegments.length) * 360;
-    const end = ((index + 1) / wheelSegments.length) * 360;
-    const color = wheelColors[index % wheelColors.length];
-    return `${color} ${start}deg ${end}deg`;
-  })
-  .join(', ');
-
-const showtimeQuips: Array<
-  (total?: number) => { en: string; pt: string }
-> = [
-  (total) => {
-    const count = total ?? 'a few';
-    return {
-      en: `Polishing ${count} secret showcase${total && total > 1 ? 's' : ''}...`,
-      pt: `A polir ${total ?? 'alguns'} segredos do espetáculo...`,
-    };
-  },
-  () => ({
-    en: 'Cue the confetti! Producers are lining up the next prize.',
-    pt: 'Confettis prontos! A produção está a alinhar o próximo prémio.',
-  }),
-  () => ({
-    en: 'Backstage crew is whispering prices to the big wheel...',
-    pt: 'A equipa de bastidores está a soprar preços à grande roda...',
-  }),
-  () => ({
-    en: 'Cranking the neon lights and unlocking the prize vault...',
-    pt: 'A acender as luzes neon e a abrir o cofre dos prémios...',
-  }),
-];
-
-function getShowtimeMessage(language: Language, total?: number) {
-  const pick = showtimeQuips[Math.floor(Math.random() * showtimeQuips.length)];
-  const message = pick(total);
-  return language === 'pt' ? message.pt : message.en;
-}
 
 function StageBackground({
   children,
@@ -197,113 +136,13 @@ function SafeExitButton({ onClick, label }: { onClick: () => void; label: string
   );
 }
 
-function WheelOverlay({
-  visible,
-  prize,
-  spinId,
-  targetAngle,
-  message,
-  onComplete,
-  reduceMotion = false,
-  language,
-}: {
-  visible: boolean;
-  prize: string;
-  spinId: number;
-  targetAngle: number;
-  message: string;
-  onComplete: () => void;
-  reduceMotion?: boolean;
-  language: Language;
-}) {
-  useEffect(() => {
-    if (!reduceMotion || !visible) return;
-    const fallbackTimer = setTimeout(() => {
-      onComplete();
-    }, 800);
-    return () => clearTimeout(fallbackTimer);
-  }, [reduceMotion, visible, onComplete]);
-  
-  return (
-    <AnimatePresence>
-      {visible && (
-        <motion.div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-blue-deep/85 px-4 py-8 backdrop-blur"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
-          <motion.div
-            className="flyer-box flex flex-col items-center gap-6 bg-card px-6 py-8"
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-          >
-            {reduceMotion ? (
-              <div className="flex flex-col items-center gap-4">
-                <div className="promo-badge h-20 w-20 rounded-full bg-blue-mid text-card">
-                  <Sparkles className="h-10 w-10" />
-                </div>
-                <p className="font-display text-base text-blue-deep">
-                  {message || (language === 'pt' ? 'A preparar o próximo produto...' : 'Preparing next product...')}
-                </p>
-              </div>
-            ) : (
-              <div className="relative flex items-center justify-center">
-                <div className="absolute -top-10 left-1/2 h-16 w-10 -translate-x-1/2 rounded-b-full bg-gradient-to-b from-white to-lenka-gold shadow-lg" />
-                <motion.div
-                  key={spinId}
-                  className="relative h-[320px] w-[320px] rounded-full border-4 border-white/50 p-4 shadow-lenka-glow sm:h-[420px] sm:w-[420px]"
-                  style={{
-                    backgroundImage: `conic-gradient(${wheelGradient})`,
-                  }}
-                  initial={{ rotate: 0 }}
-                  animate={{ rotate: targetAngle }}
-                  transition={{ duration: 4.6, ease: [0.12, 0.67, 0.22, 0.99] }}
-                  onAnimationComplete={onComplete}
-                >
-                  {wheelSegments.map((label, index) => {
-                    const angle = (360 / wheelSegments.length) * index;
-                    return (
-                      <div
-                        key={`${label}-${index}`}
-                        className="absolute left-1/2 top-1/2 origin-top text-xs font-black uppercase tracking-widest text-blue-deep"
-                        style={{
-                          transform: `rotate(${angle}deg) translate(-50%, -82%)`,
-                        }}
-                      >
-                        <span className="drop-shadow-lg">{label}</span>
-                      </div>
-                    );
-                  })}
-                  <div className="absolute inset-6 rounded-full border-4 border-blue-deep/30 bg-card/50 backdrop-blur" />
-                  <div className="absolute inset-[32%] flex flex-col items-center justify-center rounded-full border-2 border-blue-deep bg-card text-center text-blue-deep shadow-flyer-xs">
-                  <p className="text-xs uppercase tracking-[0.4em] text-blue-mid">
-                    {language === 'pt' ? 'Prémio da roda' : 'Wheel Prize'}
-                  </p>
-                    <p className="font-ad text-3xl uppercase text-blue-deep">{prize}</p>
-                  </div>
-                </motion.div>
-              </div>
-            )}
-            <div className="text-center">
-              <p className="text-xs uppercase tracking-[0.4em] text-blue-mid">
-                {language === 'pt' ? 'Roda da Lenka' : 'Wheel of Lenka'}
-              </p>
-              <p className="font-display text-lg text-blue-deep">{message}</p>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
+
 
 function SettingsHeader({ code, onCopy }: { code: string; onCopy: () => void }) {
   return (
-      <div className="mb-6 flex justify-end">
-        <LobbyCodeBadge code={code} onCopy={onCopy} />
-      </div>
+    <div className="mb-6 flex justify-end">
+      <LobbyCodeBadge code={code} onCopy={onCopy} />
+    </div>
   );
 }
 
@@ -311,7 +150,7 @@ export default function LobbyPage() {
   const params = useParams();
   const router = useRouter();
   const code = params.code as string;
-  
+
   const [lobby, setLobby] = useState<Lobby | null>(null);
   const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
@@ -333,11 +172,7 @@ export default function LobbyPage() {
   const [isReady, setIsReady] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
-  const [isWheelVisible, setIsWheelVisible] = useState(false);
-  const [wheelSpinId, setWheelSpinId] = useState(0);
-  const [wheelTargetAngle, setWheelTargetAngle] = useState(0);
-  const [wheelPrize, setWheelPrize] = useState('50€');
-  const [wheelMessage, setWheelMessage] = useState('');
+
   const [pendingLoadingState, setPendingLoadingState] = useState<{
     message: string;
     total: number;
@@ -350,19 +185,18 @@ export default function LobbyPage() {
   const [kickingPlayerId, setKickingPlayerId] = useState<string | null>(null);
   const [, startLobbyTransition] = useTransition();
   const [showSettings, setShowSettings] = useState(false);
-  
+
   const mountedRef = useRef(false);
   const activeTimeouts = useRef<NodeJS.Timeout[]>([]); // Track all active timeouts
   const cleanupFunctionsRef = useRef<(() => void)[]>([]); // Track cleanup functions
-  const wheelTimestampRef = useRef<number | null>(null);
   const prevTimeLeftRef = useRef(timeLeft);
-  const wheelVisibleRef = useRef(isWheelVisible);
+
   const previousLobbyStatusRef = useRef<Lobby['status'] | null>(null);
   const playerNameRef = useRef<string>('');
   const clientIdRef = useRef<string>('');
   const activeLobbyCodeRef = useRef<string | null>(code !== '__create__' ? code : null);
   const kickingPlayerIdRef = useRef<string | null>(null);
-  const safeReturnRef = useRef<() => void>(() => {});
+  const safeReturnRef = useRef<() => void>(() => { });
   const shouldConfirmExitRef = useRef(true);
   const lastAppliedResultRoundRef = useRef<number | null>(null);
   const lastSubmittedGuessRef = useRef<string>('');
@@ -411,27 +245,27 @@ export default function LobbyPage() {
     label: { en: string; pt: string };
     description: { en: string; pt: string };
   }> = [
-    {
-      value: 'mixed',
-      label: { en: 'Mixed', pt: 'Mistura' },
-      description: { en: 'KuantoKusta + Temu + Decathlon', pt: 'KuantoKusta + Temu + Decathlon' },
-    },
-    {
-      value: 'kuantokusta',
-      label: { en: 'KuantoKusta', pt: 'KuantoKusta' },
-      description: { en: 'Portuguese supermarket lineup', pt: 'Seleção de supermercados portugueses' },
-    },
-    {
-      value: 'temu',
-      label: { en: 'Temu', pt: 'Temu' },
-      description: { en: 'International marketplace chaos', pt: 'Marketplace internacional' },
-    },
-    {
-      value: 'decathlon',
-      label: { en: 'Decathlon', pt: 'Decathlon' },
-      description: { en: 'Sports gear roulette', pt: 'Roleta de artigos desportivos' },
-    },
-  ];
+      {
+        value: 'mixed',
+        label: { en: 'Mixed', pt: 'Mistura' },
+        description: { en: 'KuantoKusta + Temu + Decathlon', pt: 'KuantoKusta + Temu + Decathlon' },
+      },
+      {
+        value: 'kuantokusta',
+        label: { en: 'KuantoKusta', pt: 'KuantoKusta' },
+        description: { en: 'Portuguese supermarket lineup', pt: 'Seleção de supermercados portugueses' },
+      },
+      {
+        value: 'temu',
+        label: { en: 'Temu', pt: 'Temu' },
+        description: { en: 'International marketplace chaos', pt: 'Marketplace internacional' },
+      },
+      {
+        value: 'decathlon',
+        label: { en: 'Decathlon', pt: 'Decathlon' },
+        description: { en: 'Sports gear roulette', pt: 'Roleta de artigos desportivos' },
+      },
+    ];
   const getProductSourceLabel = (source: Lobby['productSource']) => {
     switch (source) {
       case 'kuantokusta':
@@ -447,9 +281,7 @@ export default function LobbyPage() {
 
   const disableHeavyEffects = true;
 
-  useEffect(() => {
-    wheelVisibleRef.current = isWheelVisible;
-  }, [isWheelVisible]);
+
 
   useEffect(() => {
     kickingPlayerIdRef.current = kickingPlayerId;
@@ -518,44 +350,7 @@ export default function LobbyPage() {
     setFinalLeaderboard(null);
   };
 
-  const startWheelSpin = useCallback((message: string) => {
-    const totalSegments = wheelSegments.length;
-    const fullSpins = Math.floor(Math.random() * 3) + 3;
-    const selectedIndex = Math.floor(Math.random() * totalSegments);
-    const anglePerSegment = 360 / totalSegments;
-    const randomOffset = Math.random() * (anglePerSegment - 6);
-    const target =
-      fullSpins * 360 + selectedIndex * anglePerSegment + randomOffset;
 
-    setWheelTargetAngle(target);
-    setWheelPrize(wheelSegments[selectedIndex]);
-    setWheelMessage(message);
-    setWheelSpinId((prev) => prev + 1);
-    setIsWheelVisible(true);
-    wheelTimestampRef.current = Date.now();
-  }, []);
-
-  const handleWheelComplete = () => {
-    playFanfare();
-    setIsWheelVisible(false);
-
-    if (pendingRoundPayload) {
-      revealProduct(pendingRoundPayload);
-      setPendingRoundPayload(null);
-      setPendingLoadingState(null);
-      return;
-    }
-
-    if (pendingLoadingState) {
-      setIsLoadingProducts(true);
-      setLoadingMessage(pendingLoadingState.message);
-      setTotalRounds(pendingLoadingState.total);
-      setPendingLoadingState(null);
-    } else {
-      setIsLoadingProducts(true);
-      setLoadingMessage(t('Lining up the first item...', 'A alinhar o primeiro item...'));
-    }
-  };
 
   // Helper to add and track timeouts
   const addTimeout = useCallback((callback: () => void, delay: number) => {
@@ -585,7 +380,7 @@ export default function LobbyPage() {
         return;
       }
     }
-    
+
     console.log('🚀 Lobby page effect running for code:', code);
     mountedRef.current = true;
     activeLobbyCodeRef.current = code !== '__create__' ? code : null;
@@ -599,7 +394,7 @@ export default function LobbyPage() {
     playerNameRef.current = playerName;
     const ensuredClientId = ensurePlayerClientId();
     clientIdRef.current = ensuredClientId;
-    
+
     console.log('🔌 Setting up fresh event listeners...');
 
     // Store cleanup functions
@@ -636,7 +431,6 @@ export default function LobbyPage() {
         setIsResetting(false);
         setPendingRoundPayload(null);
         setPendingLoadingState(null);
-        setIsWheelVisible(false);
       }
 
       startLobbyTransition(() => {
@@ -656,7 +450,7 @@ export default function LobbyPage() {
         }
         previousLobbyStatusRef.current = lobbyData.status;
       });
-      
+
       // Update URL if we just created
       if (code === '__create__') {
         router.replace(`/lobby/${lobbyData.code}`);
@@ -682,14 +476,11 @@ export default function LobbyPage() {
 
     const unsubGameLoading = onGameLoading(({ message, totalRounds: total }) => {
       console.log('⏳ Loading products:', message);
-      const funMessage = getShowtimeMessage(languageRef.current, total);
       setIsStarting(false);
       setPendingLoadingState(null);
       setPendingRoundPayload(null);
-      setWheelMessage(funMessage);
-      setIsWheelVisible(false);
       setIsLoadingProducts(true);
-      setLoadingMessage(funMessage);
+      setLoadingMessage(message || t('Loading products...', 'A carregar produtos...'));
       setTotalRounds(total);
       setLobby((prev) => (prev ? { ...prev, status: 'loading' } : prev));
     });
@@ -700,18 +491,17 @@ export default function LobbyPage() {
       setIsStarting(false);
       setPendingLoadingState(null);
       setPendingRoundPayload(null);
-      setIsWheelVisible(false);
       setIsLoadingProducts(false);
       setLoadingMessage('');
       setLobby((prev) =>
         prev
           ? {
-              ...prev,
-              status: 'playing',
-              currentRoundIndex: rIndex,
-              roundsTotal: total,
-              currentProduct: product,
-            }
+            ...prev,
+            status: 'playing',
+            currentRoundIndex: rIndex,
+            roundsTotal: total,
+            currentProduct: product,
+          }
           : prev
       );
       revealProduct(payload);
@@ -747,6 +537,7 @@ export default function LobbyPage() {
       setShowResults(false); // Clear round results so game over screen shows
       setRoundResults(null);
       setIsReady(false);
+      setIsLoadingProducts(false); // Ensure loading state is cleared
       // Update lobby status to finished
       setLobby((prev) => {
         if (!prev) return prev;
@@ -797,7 +588,7 @@ export default function LobbyPage() {
 
         // Check if this is a create or join
         const shouldCreate = localStorage.getItem('createLobby') === 'true';
-        
+
         if (shouldCreate && code === '__create__') {
           const roundsTotal = parseInt(localStorage.getItem('roundsTotal') || '5');
           const productSource = (localStorage.getItem('productSource') || 'mixed') as 'kuantokusta' | 'temu' | 'decathlon' | 'mixed';
@@ -838,17 +629,17 @@ export default function LobbyPage() {
     return () => {
       console.log('🧹 Cleanup: Removing all event listeners and timeouts');
       mountedRef.current = false;
-      
+
       // Clear all pending timeouts
       clearAllTimeouts();
-      
+
       // Remove all game-related listeners (extra safety)
       try {
         removeAllGameListeners();
       } catch (error) {
         console.error('Error removing game listeners:', error);
       }
-      
+
       // Call all cleanup functions
       console.log(`🧹 Calling ${cleanupFunctions.length} cleanup functions`);
       cleanupFunctions.forEach(cleanup => {
@@ -859,7 +650,7 @@ export default function LobbyPage() {
         }
       });
     };
-  }, [addTimeout, code, router, startWheelSpin]);
+  }, [addTimeout, code, router]);
 
   useEffect(() => {
     if (!currentProduct) {
@@ -913,13 +704,13 @@ export default function LobbyPage() {
 
   const handleStartGame = async () => {
     console.log('🎮 Start Game clicked. Lobby:', lobby, 'isStarting:', isStarting);
-    
+
     // Prevent double-clicks
     if (isStarting) {
       console.log('⚠️ Game is already starting, ignoring duplicate click');
       return;
     }
-    
+
     if (!lobby) {
       console.error('❌ No lobby available!');
       return;
@@ -930,7 +721,6 @@ export default function LobbyPage() {
     setLoadingMessage('');
     setPendingLoadingState(null);
     setPendingRoundPayload(null);
-    startWheelSpin(t('Spinning the Wheel of Lenka...', 'A rodar a Roda da Lenka...'));
     playDing();
 
     // Use server-side API fetch (works!)
@@ -943,7 +733,7 @@ export default function LobbyPage() {
       if (!value || !lobby) {
         return false;
       }
-  
+
       const parsed = parseFloat(value);
       if (isNaN(parsed) || parsed < 0) {
         if (!auto) {
@@ -952,7 +742,7 @@ export default function LobbyPage() {
         }
         return false;
       }
-  
+
       submitGuess(lobby.code, parsed);
       lastSubmittedGuessRef.current = value;
       if (!hasSubmitted) {
@@ -998,10 +788,10 @@ export default function LobbyPage() {
       console.log('⚠️ Play Again already in progress or no lobby');
       return;
     }
-    
+
     console.log('🔄 Play Again clicked');
     setIsResetting(true);
-    
+
     try {
       resetGame(lobby.code);
       playDing();
@@ -1096,12 +886,12 @@ export default function LobbyPage() {
       console.log('⚠️ Leave already in progress or no lobby');
       return;
     }
-    
+
     console.log('👋 Leaving lobby');
     setIsLeaving(true);
     playBuzzer();
     shouldConfirmExitRef.current = false;
-    
+
     try {
       leaveLobby(lobby.code);
       if (typeof window !== 'undefined') {
@@ -1125,26 +915,15 @@ export default function LobbyPage() {
     }
   };
 
-  const wheelOverlay = (
-    <WheelOverlay
-      visible={isWheelVisible}
-      prize={wheelPrize}
-      spinId={wheelSpinId}
-      targetAngle={wheelTargetAngle}
-      message={wheelMessage}
-      onComplete={handleWheelComplete}
-      reduceMotion={disableHeavyEffects}
-      language={language}
-    />
-  );
+
   const topControls = (
     <TopControls
       isMobile={isMobileLayout}
       onOpenSettings={
         isMobileLayout
           ? () => {
-              setShowSettings(true);
-            }
+            setShowSettings(true);
+          }
           : undefined
       }
     />
@@ -1209,7 +988,7 @@ export default function LobbyPage() {
     return (
       <>
         <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-3xl" overlay={settingsModal}>
-          {wheelOverlay}
+
           <div className="flyer-box bg-card p-10 text-center">
             {error ? (
               <div className="space-y-4">
@@ -1243,7 +1022,7 @@ export default function LobbyPage() {
   const settingsHeader = lobby.status === 'finished' ? null : <SettingsHeader code={lobby.code} onCopy={copyLobbyCode} />;
 
   // Loading products screen
-  if (isLoadingProducts || (lobby.status === 'loading' && !currentProduct)) {
+  if ((isLoadingProducts || (lobby.status === 'loading' && !currentProduct)) && lobby.status !== 'finished') {
     const loadingCopy =
       loadingMessage ||
       pendingLoadingState?.message ||
@@ -1253,7 +1032,7 @@ export default function LobbyPage() {
       <>
         <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-4xl" overlay={settingsModal}>
           {settingsHeader}
-            <div className="flyer-box bg-card p-8 text-center mt-10">
+          <div className="flyer-box bg-card p-8 text-center mt-10">
             <div className="flex flex-col items-center gap-3">
               <div className="promo-badge rounded-full bg-blue-mid text-card shadow-flyer">
                 <RadioTower className="h-10 w-10" />
@@ -1355,8 +1134,8 @@ export default function LobbyPage() {
                       entry.signedDifference === 0
                         ? t('Exact', 'Certo')
                         : entry.signedDifference > 0
-                        ? t('Over', 'Acima')
-                        : t('Under', 'Abaixo');
+                          ? t('Over', 'Acima')
+                          : t('Under', 'Abaixo');
                     return (
                       <div
                         key={`mobile-result-${entry.playerName}-${entry.guess}`}
@@ -1382,7 +1161,9 @@ export default function LobbyPage() {
                       onClick={handleMarkReady}
                       className="coupon-button w-full bg-blue-mid px-5 py-3 text-card"
                     >
-                      {t('Ready for next round', 'Pronto para a próxima ronda')}
+                      {resolvedRoundIndex + 1 === resolvedTotalRounds
+                        ? t('See Final Results', 'Ver Resultados Finais')
+                        : t('Ready for next round', 'Pronto para a próxima ronda')}
                     </button>
                   ) : (
                     <div className="text-center text-sm font-semibold uppercase tracking-[0.3em] text-blue-mid">
@@ -1392,9 +1173,8 @@ export default function LobbyPage() {
                   <button
                     onClick={handleLeaveLobby}
                     disabled={isLeaving}
-                    className={`coupon-button w-full bg-card px-5 py-3 text-sm ${
-                      isLeaving ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
-                    }`}
+                    className={`coupon-button w-full bg-card px-5 py-3 text-sm ${isLeaving ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
+                      }`}
                   >
                     {isLeaving ? t('Leaving...', 'A sair...') : t('Leave Game', 'Sair do jogo')}
                   </button>
@@ -1411,9 +1191,8 @@ export default function LobbyPage() {
                     .map((player, index) => (
                       <div
                         key={`m-lead-${player.id}`}
-                        className={`flex items-center justify-between rounded-md border-2 px-4 py-2 text-sm shadow-flyer-xs ${
-                          index === 0 ? 'border-blue-deep bg-blue-light/40' : 'border-blue-deep/60 bg-card'
-                        }`}
+                        className={`flex items-center justify-between rounded-md border-2 px-4 py-2 text-sm shadow-flyer-xs ${index === 0 ? 'border-blue-deep bg-blue-light/40' : 'border-blue-deep/60 bg-card'
+                          }`}
                       >
                         <span className="font-display text-blue-deep">
                           {index === 0 && '🥇 '}
@@ -1434,7 +1213,7 @@ export default function LobbyPage() {
     return (
       <>
         <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl" overlay={settingsModal}>
-          {wheelOverlay}
+
           {settingsHeader}
           <div className="space-y-6">
             <div className="flyer-box bg-card p-6">
@@ -1455,9 +1234,8 @@ export default function LobbyPage() {
                 <button
                   onClick={handleLeaveLobby}
                   disabled={isLeaving}
-                  className={`coupon-button inline-flex items-center gap-2 bg-card px-5 py-2 text-sm ${
-                    isLeaving ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
-                  }`}
+                  className={`coupon-button inline-flex items-center gap-2 bg-card px-5 py-2 text-sm ${isLeaving ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
+                    }`}
                 >
                   <DoorOpen className="h-4 w-4" />
                   {isLeaving ? t('Leaving...', 'A sair...') : t('Leave Game', 'Sair do jogo')}
@@ -1507,7 +1285,9 @@ export default function LobbyPage() {
                         className="coupon-button inline-flex w-full items-center justify-center gap-2 bg-blue-mid px-4 py-2 text-sm text-card hover:-translate-y-1"
                       >
                         <Sparkles className="h-4 w-4" />
-                        {t('Mark Ready', 'Marcar pronto')}
+                        {resolvedRoundIndex + 1 === resolvedTotalRounds
+                          ? t('See Final Results', 'Ver Resultados Finais')
+                          : t('Mark Ready', 'Marcar pronto')}
                       </button>
                     ) : (
                       <div className="rounded-md border border-blue-mid/40 bg-blue-mid/10 px-3 py-2 text-center text-[11px] font-semibold uppercase tracking-[0.3em] text-blue-deep">
@@ -1518,11 +1298,10 @@ export default function LobbyPage() {
                       {lobby.players.map((player) => (
                         <div
                           key={`ready-pill-${player.id}`}
-                          className={`label-chip flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold ${
-                            lobby.readyPlayers?.[player.id]
-                              ? 'bg-blue-light text-blue-deep'
-                              : 'bg-card text-blue-deep/70'
-                          }`}
+                          className={`label-chip flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold ${lobby.readyPlayers?.[player.id]
+                            ? 'bg-blue-light text-blue-deep'
+                            : 'bg-card text-blue-deep/70'
+                            }`}
                         >
                           <span>{player.name}</span>
                           {lobby.readyPlayers?.[player.id] && <span>✓</span>}
@@ -1581,8 +1360,8 @@ export default function LobbyPage() {
                             entry.signedDifference === 0
                               ? t('Perfect match', 'Acerto perfeito')
                               : entry.signedDifference > 0
-                              ? t('Over by', 'Acima por')
-                              : t('Under by', 'Abaixo por');
+                                ? t('Over by', 'Acima por')
+                                : t('Under by', 'Abaixo por');
                           return (
                             <div
                               key={`list-${entry.playerName}-${entry.guess}`}
@@ -1618,9 +1397,8 @@ export default function LobbyPage() {
                   .map((player, index) => (
                     <div
                       key={player.id}
-                      className={`flex items-center justify-between rounded-md border-2 px-4 py-2 text-sm shadow-flyer-xs ${
-                        index === 0 ? 'border-blue-deep bg-blue-light/40' : 'border-blue-deep/60 bg-card'
-                      }`}
+                      className={`flex items-center justify-between rounded-md border-2 px-4 py-2 text-sm shadow-flyer-xs ${index === 0 ? 'border-blue-deep bg-blue-light/40' : 'border-blue-deep/60 bg-card'
+                        }`}
                     >
                       <span className="font-display text-blue-deep">
                         {index === 0 && '🥇 '}
@@ -1646,7 +1424,7 @@ export default function LobbyPage() {
       <>
         {topControls}
         <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-md" overlay={settingsModal}>
-          {wheelOverlay}
+
           <div className="flyer-box bg-card p-3 space-y-2.5 mt-12">
             <div className="flex flex-col items-center gap-3">
               <div className="promo-badge rounded-full bg-blue-mid text-card shadow-flyer">
@@ -1664,11 +1442,10 @@ export default function LobbyPage() {
               {finalLeaderboard.map((player: any, index: number) => (
                 <div
                   key={player.playerId}
-                  className={`flex items-center justify-between rounded-md border-2 px-4 py-3 shadow-flyer-xs ${
-                    index === 0
-                      ? 'border-blue-deep bg-blue-light/40'
-                      : 'border-blue-deep/70 bg-card'
-                  }`}
+                  className={`flex items-center justify-between rounded-md border-2 px-4 py-3 shadow-flyer-xs ${index === 0
+                    ? 'border-blue-deep bg-blue-light/40'
+                    : 'border-blue-deep/70 bg-card'
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <span className="font-ad text-2xl uppercase text-blue-deep">#{index + 1}</span>
@@ -1684,9 +1461,8 @@ export default function LobbyPage() {
                 <button
                   onClick={handlePlayAgain}
                   disabled={isResetting || isLeaving}
-                  className={`coupon-button w-full bg-blue-mid px-6 py-3 text-sm text-card ${
-                    isResetting || isLeaving ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
-                  }`}
+                  className={`coupon-button w-full bg-blue-mid px-6 py-3 text-sm text-card ${isResetting || isLeaving ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
+                    }`}
                 >
                   {isResetting ? t('Resetting...', 'A reiniciar...') : t('Play Another Show', 'Jogar novamente')}
                 </button>
@@ -1694,9 +1470,8 @@ export default function LobbyPage() {
               <button
                 onClick={handleLeaveLobby}
                 disabled={isLeaving || isResetting}
-                className={`coupon-button w-full bg-card px-6 py-3 text-sm ${
-                  isLeaving || isResetting ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
-                }`}
+                className={`coupon-button w-full bg-card px-6 py-3 text-sm ${isLeaving || isResetting ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
+                  }`}
               >
                 {isLeaving ? t('Leaving...', 'A sair...') : t('Exit to Lobby', 'Sair para o lobby')}
               </button>
@@ -1715,7 +1490,7 @@ export default function LobbyPage() {
         <>
           {topControls}
           <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-md" overlay={settingsModal}>
-            {wheelOverlay}
+
             <div className="flyer-box bg-card p-3 space-y-2.5 mt-12">
               <div className="flex items-start justify-between gap-2">
                 <div className="space-y-0.5">
@@ -1724,7 +1499,7 @@ export default function LobbyPage() {
                       ? `Ronda ${resolvedRoundIndex + 1} / ${resolvedTotalRounds}`
                       : `Round ${resolvedRoundIndex + 1} / ${resolvedTotalRounds}`}
                   </p>
-        
+
                 </div>
                 <div className="promo-badge rounded-full bg-blue-mid px-3 py-1.5 text-card shadow-flyer">
                   <Clock3 className="h-4 w-4" />
@@ -1785,9 +1560,8 @@ export default function LobbyPage() {
                 <button
                   onClick={handleSubmitGuess}
                   disabled={!guess}
-                  className={`coupon-button self-stretch px-4 text-sm ${
-                    !guess ? 'cursor-not-allowed opacity-60' : 'bg-blue-mid text-card hover:-translate-y-1'
-                  }`}
+                  className={`coupon-button self-stretch px-4 text-sm ${!guess ? 'cursor-not-allowed opacity-60' : 'bg-blue-mid text-card hover:-translate-y-1'
+                    }`}
                 >
                   {hasSubmitted ? t('Update', 'Atualizar') : t('Submit', 'Submeter')}
                 </button>
@@ -1804,9 +1578,8 @@ export default function LobbyPage() {
                     return (
                       <div
                         key={`mob-player-${player.id}`}
-                        className={`flex items-center justify-between rounded border border-blue-deep/50 px-2 py-1 text-[12px] font-semibold ${
-                          hasGuess ? 'bg-blue-light/40 text-blue-deep' : 'bg-card text-blue-deep'
-                        }`}
+                        className={`flex items-center justify-between rounded border border-blue-deep/50 px-2 py-1 text-[12px] font-semibold ${hasGuess ? 'bg-blue-light/40 text-blue-deep' : 'bg-card text-blue-deep'
+                          }`}
                       >
                         <div className="flex items-center gap-2">
                           <span className="truncate">{player.name}</span>
@@ -1826,9 +1599,8 @@ export default function LobbyPage() {
               <button
                 onClick={handleLeaveLobby}
                 disabled={isLeaving}
-                className={`coupon-button w-full bg-card px-4 py-2 text-sm ${
-                  isLeaving ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
-                }`}
+                className={`coupon-button w-full bg-card px-4 py-2 text-sm ${isLeaving ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
+                  }`}
               >
                 {isLeaving ? t('Leaving...', 'A sair...') : t('Leave Game', 'Sair do jogo')}
               </button>
@@ -1842,7 +1614,7 @@ export default function LobbyPage() {
       <>
         {topControls}
         <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl" overlay={settingsModal}>
-          {wheelOverlay}
+
           {settingsHeader}
           <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
             <div className="flyer-box bg-card p-6">
@@ -1911,9 +1683,8 @@ export default function LobbyPage() {
                   <button
                     onClick={handleSubmitGuess}
                     disabled={!guess}
-                    className={`coupon-button px-7 py-4 text-lg ${
-                      !guess ? 'cursor-not-allowed opacity-60' : 'bg-blue-mid text-card hover:-translate-y-1'
-                    }`}
+                    className={`coupon-button px-7 py-4 text-lg ${!guess ? 'cursor-not-allowed opacity-60' : 'bg-blue-mid text-card hover:-translate-y-1'
+                      }`}
                   >
                     {hasSubmitted ? t('Update Guess', 'Atualizar palpite') : t('Submit guess', 'Submeter palpite')}
                   </button>
@@ -1938,11 +1709,10 @@ export default function LobbyPage() {
                   {lobby.players.map((player) => (
                     <div
                       key={player.id}
-                      className={`flex items-center justify-between rounded-md border-2 px-3 py-2 text-sm font-semibold shadow-flyer-xs ${
-                        lobby.currentRoundIndex === roundIndex && lobby.guesses[player.id] !== undefined
-                          ? 'border-blue-deep bg-blue-light/40 text-blue-deep'
-                          : 'border-blue-deep/60 bg-card text-blue-deep'
-                      }`}
+                      className={`flex items-center justify-between rounded-md border-2 px-3 py-2 text-sm font-semibold shadow-flyer-xs ${lobby.currentRoundIndex === roundIndex && lobby.guesses[player.id] !== undefined
+                        ? 'border-blue-deep bg-blue-light/40 text-blue-deep'
+                        : 'border-blue-deep/60 bg-card text-blue-deep'
+                        }`}
                     >
                       <div className="flex items-center gap-2">
                         <span>{player.name}</span>
@@ -1957,9 +1727,8 @@ export default function LobbyPage() {
               <button
                 onClick={handleLeaveLobby}
                 disabled={isLeaving}
-                className={`coupon-button w-full bg-card px-6 py-3 text-sm ${
-                  isLeaving ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
-                }`}
+                className={`coupon-button w-full bg-card px-6 py-3 text-sm ${isLeaving ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
+                  }`}
               >
                 {isLeaving ? t('Leaving...', 'A sair...') : t('Leave Game', 'Sair do jogo')}
               </button>
@@ -2018,9 +1787,8 @@ export default function LobbyPage() {
                         <button
                           key={`m-rou-${option}`}
                           onClick={() => handleLobbySettingsChange({ roundsTotal: option })}
-                          className={`label-chip px-3 py-2 ${
-                            lobby.roundsTotal === option ? 'bg-blue-light text-blue-deep' : 'bg-card text-blue-deep/80'
-                          }`}
+                          className={`label-chip px-3 py-2 ${lobby.roundsTotal === option ? 'bg-blue-light text-blue-deep' : 'bg-card text-blue-deep/80'
+                            }`}
                         >
                           {option}
                         </button>
@@ -2036,9 +1804,8 @@ export default function LobbyPage() {
                         <button
                           key={`m-src-${option.value}`}
                           onClick={() => handleLobbySettingsChange({ productSource: option.value })}
-                          className={`label-chip px-3 py-2 ${
-                            lobby.productSource === option.value ? 'bg-blue-light text-blue-deep' : 'bg-card text-blue-deep/80'
-                          }`}
+                          className={`label-chip px-3 py-2 ${lobby.productSource === option.value ? 'bg-blue-light text-blue-deep' : 'bg-card text-blue-deep/80'
+                            }`}
                         >
                           {language === 'pt' ? option.label.pt : option.label.en}
                         </button>
@@ -2052,9 +1819,8 @@ export default function LobbyPage() {
                 <button
                   onClick={handleStartGame}
                   disabled={lobby.players.length < 1 || isStarting}
-                  className={`coupon-button w-full bg-blue-mid px-5 py-3 text-card ${
-                    lobby.players.length < 1 || isStarting ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
-                  }`}
+                  className={`coupon-button w-full bg-blue-mid px-5 py-3 text-card ${lobby.players.length < 1 || isStarting ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
+                    }`}
                 >
                   {isStarting ? t('Starting...', 'A iniciar...') : t('Start Game', 'Começar jogo')}
                 </button>
@@ -2066,9 +1832,8 @@ export default function LobbyPage() {
               <button
                 onClick={handleLeaveLobby}
                 disabled={isLeaving}
-                className={`coupon-button w-full bg-card px-5 py-3 text-sm ${
-                  isLeaving ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
-                }`}
+                className={`coupon-button w-full bg-card px-5 py-3 text-sm ${isLeaving ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
+                  }`}
               >
                 {isLeaving ? t('Leaving...', 'A sair...') : t('Leave Lobby', 'Sair do lobby')}
               </button>
@@ -2080,7 +1845,7 @@ export default function LobbyPage() {
     return (
       <>
         <StageBackground disableMotion={disableHeavyEffects} maxWidth="max-w-5xl" overlay={settingsModal}>
-          {wheelOverlay}
+
           <div className="grid gap-6 lg:grid-cols-[1.1fr,0.9fr]">
             <div className="flyer-box bg-card p-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -2128,11 +1893,10 @@ export default function LobbyPage() {
                               key={option}
                               type="button"
                               onClick={() => handleLobbySettingsChange({ roundsTotal: option })}
-                              className={`label-chip ${
-                                lobby.roundsTotal === option
-                                  ? 'bg-blue-light text-blue-deep'
-                                  : 'bg-card text-blue-deep/80'
-                              }`}
+                              className={`label-chip ${lobby.roundsTotal === option
+                                ? 'bg-blue-light text-blue-deep'
+                                : 'bg-card text-blue-deep/80'
+                                }`}
                             >
                               {language === 'pt' ? `${option} rondas` : `${option} rounds`}
                             </button>
@@ -2149,11 +1913,10 @@ export default function LobbyPage() {
                               key={option.value}
                               type="button"
                               onClick={() => handleLobbySettingsChange({ productSource: option.value })}
-                              className={`label-chip ${
-                                lobby.productSource === option.value
-                                  ? 'bg-blue-light text-blue-deep'
-                                  : 'bg-card text-blue-deep/80'
-                              }`}
+                              className={`label-chip ${lobby.productSource === option.value
+                                ? 'bg-blue-light text-blue-deep'
+                                : 'bg-card text-blue-deep/80'
+                                }`}
                             >
                               {language === 'pt' ? option.label.pt : option.label.en}
                             </button>
@@ -2174,9 +1937,8 @@ export default function LobbyPage() {
                   <button
                     onClick={handleStartGame}
                     disabled={lobby.players.length < 1 || isStarting}
-                    className={`coupon-button w-full bg-blue-mid px-6 py-4 text-lg text-card ${
-                      lobby.players.length < 1 || isStarting ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
-                    }`}
+                    className={`coupon-button w-full bg-blue-mid px-6 py-4 text-lg text-card ${lobby.players.length < 1 || isStarting ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
+                      }`}
                   >
                     {isStarting ? 'Calling the wheel...' : 'Start The Show'}
                   </button>
@@ -2189,9 +1951,8 @@ export default function LobbyPage() {
                 <button
                   onClick={handleLeaveLobby}
                   disabled={isLeaving}
-                  className={`coupon-button w-full bg-card px-6 py-3 text-sm ${
-                    isLeaving ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
-                  }`}
+                  className={`coupon-button w-full bg-card px-6 py-3 text-sm ${isLeaving ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-1'
+                    }`}
                 >
                   {isLeaving ? t('Leaving...', 'A sair...') : t('Leave Lobby', 'Sair do lobby')}
                 </button>
@@ -2210,11 +1971,10 @@ export default function LobbyPage() {
                   {lobby.players.map((player) => (
                     <div
                       key={player.id}
-                      className={`flex items-center justify-between rounded-md border-2 px-4 py-2 text-sm font-semibold shadow-flyer-xs ${
-                        player.isHost
-                          ? 'border-blue-deep bg-blue-light/40 text-blue-deep'
-                          : 'border-blue-deep/60 bg-card text-blue-deep'
-                      }`}
+                      className={`flex items-center justify-between rounded-md border-2 px-4 py-2 text-sm font-semibold shadow-flyer-xs ${player.isHost
+                        ? 'border-blue-deep bg-blue-light/40 text-blue-deep'
+                        : 'border-blue-deep/60 bg-card text-blue-deep'
+                        }`}
                     >
                       <div className="flex items-center gap-2">
                         <span>{player.name}</span>
