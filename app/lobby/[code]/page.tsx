@@ -2076,13 +2076,7 @@ export default function LobbyPage() {
               </div>
             </div>
           </div>
-          <div className="mt-6">
-            <SafeExitButton
-              onClick={handleSafeReturn}
-              label={withShortcut(t('Exit to Main Menu', 'Voltar ao menu principal'), `(${ESC_LABEL})`)}
-              hotkeyProps={hotkey('escape', { title: t('Shortcut: Esc', 'Atalho: Esc') })}
-            />
-          </div>
+
         </StageBackground>
       </>
     );
