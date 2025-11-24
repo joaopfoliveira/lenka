@@ -27,18 +27,19 @@ export default function Home() {
   const [showSettings, setShowSettings] = useState(false);
   const t = (en: string, pt: string) => (language === 'pt' ? pt : en);
   const DEFAULT_ROUNDS = 5;
-  const DEFAULT_SOURCE: 'kuantokusta' | 'temu' | 'decathlon' | 'mixed' = 'mixed';
+  const DEFAULT_SOURCE: 'kuantokusta' | 'temu' | 'decathlon' | 'supermarket' | 'mixed' = 'mixed';
   const [soloRounds, setSoloRounds] = useState(DEFAULT_ROUNDS);
-  const [soloSource, setSoloSource] = useState<'mixed' | 'kuantokusta' | 'temu' | 'decathlon'>(DEFAULT_SOURCE);
+  const [soloSource, setSoloSource] = useState<'mixed' | 'kuantokusta' | 'temu' | 'decathlon' | 'supermarket'>(DEFAULT_SOURCE);
   const roundOptions = [5, 8, 10] as const;
   const productSourceOptions: Array<{
-    value: 'mixed' | 'kuantokusta' | 'temu' | 'decathlon';
+    value: 'mixed' | 'kuantokusta' | 'temu' | 'decathlon' | 'supermarket';
     label: { en: string; pt: string };
   }> = [
     { value: 'mixed', label: { en: 'Random', pt: 'Aleatório' } },
     { value: 'kuantokusta', label: { en: 'KuantoKusta', pt: 'KuantoKusta' } },
     { value: 'temu', label: { en: 'Temu', pt: 'Temu' } },
     { value: 'decathlon', label: { en: 'Decathlon', pt: 'Decathlon' } },
+    { value: 'supermarket', label: { en: 'Supermarkets', pt: 'Supermercados' } },
   ];
   const mobileActionCards: Array<{ key: 'create' | 'join'; label: string; title: string; icon: typeof Gamepad2 }> = [
     {

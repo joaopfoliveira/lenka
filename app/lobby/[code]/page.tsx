@@ -277,7 +277,7 @@ export default function LobbyPage() {
   }, [lobby]);
   const roundOptions = [5, 8, 10] as const;
   const productSourceOptions: Array<{
-    value: 'mixed' | 'kuantokusta' | 'temu' | 'decathlon';
+    value: Lobby['productSource'];
     label: { en: string; pt: string };
     description: { en: string; pt: string };
   }> = [
@@ -301,6 +301,11 @@ export default function LobbyPage() {
         label: { en: 'Decathlon', pt: 'Decathlon' },
         description: { en: 'Sports gear roulette', pt: 'Roleta de artigos desportivos' },
       },
+      {
+        value: 'supermarket',
+        label: { en: 'Supermarkets', pt: 'Supermercados' },
+        description: { en: 'Portuguese supermarket lineup', pt: 'Seleção de supermercados portugueses' },
+      },
     ];
   const getProductSourceLabel = (source: Lobby['productSource']) => {
     switch (source) {
@@ -310,6 +315,8 @@ export default function LobbyPage() {
         return t('Temu', 'Temu');
       case 'decathlon':
         return t('Decathlon', 'Decathlon');
+      case 'supermarket':
+        return t('Supermarkets', 'Supermercados');
       default:
         return t('Random', 'Aleatório');
     }
@@ -851,7 +858,7 @@ export default function LobbyPage() {
 
   const handleLobbySettingsChange = (settings: {
     roundsTotal?: number;
-    productSource?: 'kuantokusta' | 'temu' | 'decathlon' | 'mixed';
+    productSource?: 'kuantokusta' | 'temu' | 'decathlon' | 'supermarket' | 'mixed';
   }) => {
     if (!lobby || !currentPlayer?.isHost) {
       return;

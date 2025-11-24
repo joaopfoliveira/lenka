@@ -3,6 +3,7 @@ import { productCollection } from '@/data/products';
 import { fetchRandomKuantoKustaProductsAPI } from './fetchers/kuantokusta-api.fetcher';
 import { fetchRandomTemuProducts } from './fetchers/temu.fetcher';
 import { fetchRandomDecathlonProducts } from './fetchers/decathlon.fetcher';
+import { fetchRandomSupermarketProducts } from './fetchers/supermarket.fetcher';
 import { 
   calculateRoundResults as scoringCalculateRoundResults, 
   generateLeaderboard,
@@ -31,7 +32,7 @@ export type Lobby = {
   products?: Product[];
   guesses: Record<string, number>;
   readyPlayers: Record<string, boolean>; // Track who is ready for next round
-  productSource: 'kuantokusta' | 'temu' | 'decathlon' | 'mixed'; // Where to fetch products from
+  productSource: 'kuantokusta' | 'temu' | 'decathlon' | 'supermarket' | 'mixed'; // Where to fetch products from
   createdAt: number;
   lastRoundResults: LobbyRoundResults | null;
 };
@@ -132,7 +133,7 @@ class GameManager {
     roundsTotal: number,
     hostName: string,
     hostId: string,
-    productSource: 'kuantokusta' | 'temu' | 'decathlon' | 'mixed' = 'mixed',
+  productSource: 'kuantokusta' | 'temu' | 'decathlon' | 'supermarket' | 'mixed' = 'mixed',
     clientId?: string
   ): Lobby {
     const code = this.generateCode();
@@ -374,6 +375,18 @@ class GameManager {
         if (decathlonProducts.length < lobby.roundsTotal) {
           await ensureMinCount(['decathlon'], lobby.roundsTotal);
         }
+      } else if (lobby.productSource === 'supermarket') {
+        console.log(`🛒 [SERVER] Fetching ${lobby.roundsTotal} from Supermercados (SuperSave)...`);
+        const supermarketProducts = await fetchRandomSupermarketProducts(lobby.roundsTotal * 2);
+        if (supermarketProducts.length < lobby.roundsTotal) {
+          console.warn('⚠️ [SERVER] Supermercados returned fewer items than requested');
+        }
+        const sliced = supermarketProducts.slice(0, lobby.roundsTotal);
+        if (!sliced.length) {
+          throw new Error('No supermarket products fetched');
+        }
+        // Force assign to kkProducts to reuse combineAll below without changing more code
+        kkProducts = sliced;
       }
       
       // Combine and shuffle products

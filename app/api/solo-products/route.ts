@@ -3,14 +3,16 @@ import { Product } from '@/lib/productTypes';
 import { fetchRandomKuantoKustaProductsAPI } from '@/lib/fetchers/kuantokusta-api.fetcher';
 import { fetchRandomTemuProducts } from '@/lib/fetchers/temu.fetcher';
 import { fetchRandomDecathlonProducts } from '@/lib/fetchers/decathlon.fetcher';
+import { fetchRandomSupermarketProducts } from '@/lib/fetchers/supermarket.fetcher';
 
-type Source = 'kuantokusta' | 'temu' | 'decathlon' | 'mixed';
+type Source = 'kuantokusta' | 'temu' | 'decathlon' | 'supermarket' | 'mixed';
 type Provider = Exclude<Source, 'mixed'>;
 
 const providerFetchers: Record<Provider, (count: number) => Promise<Product[]>> = {
   kuantokusta: fetchRandomKuantoKustaProductsAPI,
   temu: fetchRandomTemuProducts,
   decathlon: fetchRandomDecathlonProducts,
+  supermarket: fetchRandomSupermarketProducts,
 };
 
 function splitCounts(total: number, providers: Provider[]): Record<Provider, number> {
@@ -77,9 +79,8 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const rounds = Math.max(1, Math.min(20, Number(searchParams.get('rounds')) || 5));
     const sourceParam = (searchParams.get('source') as Source) || 'mixed';
-    const source: Source = ['kuantokusta', 'temu', 'decathlon', 'mixed'].includes(sourceParam)
-      ? sourceParam
-      : 'mixed';
+    const allowedSources: Source[] = ['kuantokusta', 'temu', 'decathlon', 'supermarket', 'mixed'];
+    const source: Source = allowedSources.includes(sourceParam) ? sourceParam : 'mixed';
 
     const products = await fetchFromProviders(source, rounds);
 

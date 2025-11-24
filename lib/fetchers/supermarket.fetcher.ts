@@ -27,9 +27,10 @@ interface SuperSaveProduct {
   ean: string;
 }
 
+const SEARCH_TOKENS = 'abcdefopst'.split('');
 const SUPERMARKET_CATEGORIES: { name: ProductCategory; search: string }[] = [
-  { name: 'Bebidas', search: 'Refrigerantes' },
-  { name: 'Laticínios', search: 'Leite' },
+  { name: 'Bebidas', search: 'Bebidas' },
+  { name: 'Laticínios', search: 'Laticínios' },
   { name: 'Bolachas', search: 'Bolachas' },
   { name: 'Iogurtes', search: 'Iogurtes' },
   { name: 'Cereais', search: 'Cereais' },
@@ -41,48 +42,54 @@ export class SupermarketFetcher implements ProductFetcher {
   source = 'supermarket' as const;
   name = 'SuperSave.pt (Continente, Pingo Doce, Auchan)';
   private baseUrl = 'https://supersave.pt/web/api/newLastStateCall.php';
+  private defaultMax = 70;
 
   async fetch(options?: FetcherOptions): Promise<Product[]> {
     const {
-      categories = SUPERMARKET_CATEGORIES.map(c => c.name),
-      maxProducts = 70,
+      maxProducts = this.defaultMax,
       minPrice = 0.5,
       maxPrice = 20,
     } = options || {};
 
     console.log(`🛒 Fetching supermarket products...`);
 
-    const allProducts: Product[] = [];
-    const productsPerCategory = Math.ceil(maxProducts / SUPERMARKET_CATEGORIES.length);
+    let products: Product[] = [];
+    let attempts = 0;
+    const maxAttempts = 4;
 
-    for (const cat of SUPERMARKET_CATEGORIES) {
-      if (!categories.includes(cat.name)) continue;
-
+    while (products.length === 0 && attempts < maxAttempts) {
+      const token = this.pickSearchToken();
+      console.log(`   📦 Fetching token "${token}" (attempt ${attempts + 1}/${maxAttempts})...`);
       try {
-        const products = await this.fetchCategory(cat.name, cat.search, productsPerCategory, minPrice, maxPrice);
-        allProducts.push(...products);
+        products = await this.fetchByToken(token, maxProducts * 3, minPrice, maxPrice);
       } catch (error: any) {
-        console.error(`   ❌ Error fetching ${cat.name}:`, error.message);
+        console.error(`   ❌ Token "${token}" failed:`, error?.message || error);
       }
-
-      // Be polite - wait between requests
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      attempts += 1;
     }
 
-    console.log(`✅ Fetched ${allProducts.length} supermarket products`);
-    return allProducts;
+    if (products.length === 0) {
+      throw new Error('No supermarket products available');
+    }
+
+    const shuffled = products.sort(() => Math.random() - 0.5);
+    const sliced = shuffled.slice(0, maxProducts);
+    console.log(`✅ Fetched ${sliced.length} supermarket products`);
+    return sliced;
   }
 
-  private async fetchCategory(
-    category: ProductCategory,
-    searchTerm: string,
+  private pickSearchToken(): string {
+    const idx = Math.floor(Math.random() * SEARCH_TOKENS.length);
+    return SEARCH_TOKENS[idx];
+  }
+
+  private async fetchByToken(
+    token: string,
     maxProducts: number,
     minPrice: number,
     maxPrice: number
   ): Promise<Product[]> {
-    const url = `${this.baseUrl}?search=${encodeURIComponent(searchTerm)}&category=true`;
-    
-    console.log(`   📦 Fetching ${category}...`);
+    const url = `${this.baseUrl}?search=${encodeURIComponent(token)}`;
 
     const response = await fetch(url, {
       headers: {
@@ -129,11 +136,11 @@ export class SupermarketFetcher implements ProductFetcher {
         source: 'supermarket',
         name: cleanName,
         brand: raw.marca || undefined,
-        category,
+        category: 'Outros',
         price: Math.round(price * 100) / 100,
         currency: 'EUR',
         imageUrl: raw.imageURL,
-        store,
+        store: store || undefined,
         capacity: raw.capacity || undefined,
         ean: raw.ean || undefined,
         difficulty: calculateDifficulty(price),
@@ -196,3 +203,9 @@ export class SupermarketFetcher implements ProductFetcher {
   }
 }
 
+// Convenience helper to align with other fetchers
+export async function fetchRandomSupermarketProducts(count: number = 10): Promise<Product[]> {
+  const fetcher = new SupermarketFetcher();
+  const products = await fetcher.fetch({ maxProducts: count });
+  return products.sort(() => Math.random() - 0.5).slice(0, count);
+}
