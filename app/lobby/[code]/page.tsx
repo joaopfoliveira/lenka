@@ -247,7 +247,7 @@ export default function LobbyPage() {
   }> = [
       {
         value: 'mixed',
-        label: { en: 'Mixed', pt: 'Mistura' },
+        label: { en: 'Random', pt: 'Aleatório' },
         description: { en: 'KuantoKusta + Temu + Decathlon', pt: 'KuantoKusta + Temu + Decathlon' },
       },
       {
@@ -275,7 +275,7 @@ export default function LobbyPage() {
       case 'decathlon':
         return t('Decathlon', 'Decathlon');
       default:
-        return t('Mixed', 'Mistura');
+        return t('Random', 'Aleatório');
     }
   };
 

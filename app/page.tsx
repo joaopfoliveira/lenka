@@ -35,7 +35,7 @@ export default function Home() {
     value: 'mixed' | 'kuantokusta' | 'temu' | 'decathlon';
     label: { en: string; pt: string };
   }> = [
-    { value: 'mixed', label: { en: 'Mixed', pt: 'Mistura' } },
+    { value: 'mixed', label: { en: 'Random', pt: 'Aleatório' } },
     { value: 'kuantokusta', label: { en: 'KuantoKusta', pt: 'KuantoKusta' } },
     { value: 'temu', label: { en: 'Temu', pt: 'Temu' } },
     { value: 'decathlon', label: { en: 'Decathlon', pt: 'Decathlon' } },
