@@ -234,9 +234,10 @@ export default function SoloPage() {
             {currentProduct.description && (
               <p className="text-[11px] leading-snug text-blue-deep/70">{currentProduct.description}</p>
             )}
-          </div>
+        </div>
 
-          {!showResult && (
+        {!showResult && (
+          <div className="space-y-2">
             <div className="flex items-stretch gap-2">
               <div className="flyer-panel flex-1 bg-blue-light/10 px-2.5 py-2">
                 <label className="text-[9px] font-semibold uppercase tracking-[0.35em] text-blue-mid">
@@ -262,7 +263,16 @@ export default function SoloPage() {
                 {t('Lock', 'Bloquear')}
               </button>
             </div>
-          )}
+            <div className="flex gap-2">
+              <button
+                className="coupon-button flex-1 bg-card px-4 py-2 text-sm hover:-translate-y-1"
+                onClick={() => router.push('/')}
+              >
+                {t('Leave game', 'Sair do jogo')}
+              </button>
+            </div>
+          </div>
+        )}
 
           {showResult && lockedGuess !== null && (
             <div className="flyer-panel bg-blue-light/15 px-4 py-3">
@@ -283,7 +293,8 @@ export default function SoloPage() {
             </div>
           )}
 
-          {showResult && (
+        {showResult && (
+          <div className="space-y-2">
             <div className="flex gap-2">
               {roundIndex + 1 >= roundsTotal ? (
                 <button
@@ -301,7 +312,16 @@ export default function SoloPage() {
                 </button>
               )}
             </div>
-          )}
+            <div className="flex gap-2">
+              <button
+                className="coupon-button flex-1 bg-card px-4 py-3 text-sm hover:-translate-y-1"
+                onClick={() => router.push('/')}
+              >
+                {t('Leave game', 'Sair do jogo')}
+              </button>
+            </div>
+          </div>
+        )}
         </div>
       );
     }
@@ -367,7 +387,7 @@ export default function SoloPage() {
         )}
 
         {showResult && lockedGuess !== null && (
-          <div className="flyer-panel bg-blue-light/15 px-4 py-3">
+          <div className="flyer-panel bg-blue-light/15 px-4 py-3 space-y-3">
             <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-blue-mid">{t('Round Result', 'Resultado da ronda')}</p>
             <div className="mt-2 flex items-center justify-between">
               <div>
@@ -382,6 +402,14 @@ export default function SoloPage() {
             <p className="mt-2 text-sm font-semibold uppercase tracking-[0.35em] text-blue-mid">
               {t('Difference', 'Diferença')}: €{Math.abs(lockedGuess - currentProduct.price).toFixed(2)}
             </p>
+            <div className="flex gap-2">
+              <button
+                className="coupon-button flex-1 bg-card px-4 py-2 text-sm hover:-translate-y-1"
+                onClick={() => router.push('/')}
+              >
+                {t('Leave game', 'Sair do jogo')}
+              </button>
+            </div>
           </div>
         )}
 
@@ -452,14 +480,14 @@ export default function SoloPage() {
                 </div>
                 <div className="relative mt-3 h-2 rounded-full bg-blue-light/40">
                   <span
-                    className="absolute -top-4 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full bg-green-600/85 text-[10px] font-semibold text-card shadow-flyer-xs"
+                    className="absolute -top-4 flex h-7 w-7 -translate-x-1/2 items-center justify-center rounded-full bg-green-600/85 text-[9px] font-semibold text-card shadow-flyer-xs"
                     style={{ left: `${realPos}%` }}
                     title={t('Real price', 'Preço real')}
                   >
                     €{res.price.toFixed(2)}
                   </span>
                   <span
-                    className={`absolute -top-4 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full text-[10px] font-semibold shadow-flyer-xs ${guessColor}`}
+                    className={`absolute -top-4 flex h-7 w-7 -translate-x-1/2 items-center justify-center rounded-full text-[9px] font-semibold shadow-flyer-xs ${guessColor}`}
                     style={{ left: `${guessPos}%` }}
                     title={t('Your guess', 'O teu palpite')}
                   >
@@ -480,6 +508,12 @@ export default function SoloPage() {
           }}
         >
           {t('Play again', 'Jogar novamente')}
+        </button>
+        <button
+          className="coupon-button flex-1 bg-card px-4 py-3 text-sm hover:-translate-y-1"
+          onClick={() => router.push('/')}
+        >
+          {t('Leave game', 'Sair do jogo')}
         </button>
       </div>
     </div>
@@ -507,6 +541,15 @@ export default function SoloPage() {
           <p className="mt-2 text-sm text-blue-deep/80">
             {t('Fetching items from the providers you selected.', 'A buscar artigos das fontes que escolheste.')}
           </p>
+          <div className="flex gap-2">
+            <br/>
+            <button
+              className="coupon-button flex-1 bg-card px-4 py-2 text-sm hover:-translate-y-1"
+              onClick={() => router.push('/')}
+            >
+              {t('Cancel', 'Cancelar')}
+            </button>
+            </div>
         </div>
       )}
 
@@ -527,15 +570,6 @@ export default function SoloPage() {
 
       {!isLoadingProducts && products.length > 0 && (!finished ? renderCurrent() : renderSummary())}
 
-      <div className="mt-6 flex justify-center">
-        <button
-          className="coupon-button inline-flex items-center gap-2 bg-card px-4 py-3 text-sm hover:-translate-y-1"
-          onClick={() => router.push('/')}
-        >
-          <Home className="h-4 w-4" />
-          {t('Leave game', 'Sair do jogo')}
-        </button>
-      </div>
 
       {showSettings && (
         <div
