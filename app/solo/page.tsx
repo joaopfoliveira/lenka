@@ -411,6 +411,13 @@ export default function SoloPage() {
             >
               {withShortcut(t('Lock Guess', 'Bloquear palpite'), `(${ENTER_SYMBOL})`)}
             </button>
+            <button
+              className="coupon-button bg-card px-4 py-3 text-sm sm:px-5 sm:py-3 sm:text-base hover:-translate-y-1"
+              onClick={() => router.push('/')}
+              {...hotkey('escape', { title: t('Shortcut: Esc', 'Atalho: Esc') })}
+            >
+              {withShortcut(t('Leave game', 'Sair do jogo'), `(${ESC_LABEL})`)}
+            </button>
           </div>
         )}
 
