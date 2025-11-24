@@ -29,7 +29,9 @@ export default function TopControls({
   const { playTick } = useSfx();
 
   return (
-    <div className={`fixed right-3 top-2 z-50 flex items-center gap-2 sm:right-6 sm:top-4 ${className}`}>
+    <div
+      className={`fixed right-3 top-2 z-[120] flex items-center gap-2 sm:right-6 sm:top-4 pointer-events-auto ${className}`}
+    >
       {isMobile && onOpenSettings ? (
         <button
           onClick={() => {

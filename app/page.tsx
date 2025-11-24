@@ -167,7 +167,7 @@ export default function Home() {
           <button
             onClick={() => handleStartSolo()}
             disabled={isLaunching}
-            className={`coupon-button flex items-center justify-between bg-blue-mid px-6 py-4 text-lg text-card transition ${
+            className={`coupon-button w-full items-center justify-between bg-blue-mid px-6 py-4 text-lg text-card transition ${
               isLaunching ? 'cursor-not-allowed opacity-60' : 'hover:-translate-y-0.5'
             }`}
           >
@@ -191,8 +191,14 @@ export default function Home() {
             clearError();
           }}
           placeholder={t('', '')}
-          className="mt-2 w-full bg-transparent text-2xl font-ad uppercase text-blue-deep placeholder:text-blue-deep/40 focus:outline-none"
+          className="mt-2 w-full bg-transparent text-2xl font-ad text-blue-deep placeholder:text-blue-deep/40 focus:outline-none"
           maxLength={20}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !isMobileLayout) {
+              e.preventDefault();
+              handleCreateLobby();
+            }
+          }}
         />
       </div>
 
@@ -238,7 +244,7 @@ export default function Home() {
             clearError();
           }}
           placeholder={t('', '')}
-          className="mt-2 w-full bg-transparent text-2xl font-ad uppercase text-blue-deep placeholder:text-blue-deep/40 focus:outline-none"
+          className="mt-2 w-full bg-transparent text-2xl font-ad text-blue-deep placeholder:text-blue-deep/40 focus:outline-none"
           maxLength={20}
         />
       </div>
@@ -257,6 +263,12 @@ export default function Home() {
           placeholder=""
           className="mt-2 w-full bg-transparent text-2xl font-ad uppercase text-blue-deep placeholder:text-blue-deep/40 focus:outline-none"
           maxLength={6}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !isMobileLayout) {
+              e.preventDefault();
+              handleJoinLobby();
+            }
+          }}
         />
       </div>
 
@@ -380,7 +392,7 @@ export default function Home() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-page px-4 pb-10 pt-16 text-blue-deep sm:pt-6">
+    <div className="relative min-h-screen overflow-x-hidden bg-page px-4 pb-8 pt-12 text-blue-deep sm:pt-6 sm:pb-10">
       <TopControls
         isMobile={isMobileLayout}
         onOpenSettings={
@@ -421,7 +433,7 @@ export default function Home() {
       </div>
 
       <div
-        className={`relative z-10 mx-auto flex w-full max-w-4xl flex-col gap-10 ${
+        className={`relative z-10 mx-auto flex w-full max-w-4xl flex-col gap-8 sm:gap-10 ${
           isOverlayActive || showSettings ? 'pointer-events-none' : ''
         }`}
         aria-hidden={isOverlayActive || showSettings}
@@ -441,7 +453,7 @@ export default function Home() {
                 {t('Welcome to Lenka', 'Bem-vindo à Lenka')}
               </p>
               <h1 className="mt-2 font-ad text-xl uppercase leading-snug text-blue-deep sm:text-2xl">
-                {t('Guess the price, prove you are the best consumer!.', 'Adivinha o preço e prova que és o melhor consumidor!')}
+                {t('Guess the price, prove you are the best consumer!', 'Adivinha o preço e prova que és o melhor consumidor!')}
               </h1>
               <p className="mt-3 font-display text-sm text-blue-deep/80 sm:text-base">
                 {t(
