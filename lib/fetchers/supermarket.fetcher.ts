@@ -27,7 +27,7 @@ interface SuperSaveProduct {
   ean: string;
 }
 
-const SEARCH_TOKENS = 'abcdefopst'.split('');
+const SEARCH_TOKENS = 'abcdefops'.split('');
 const SUPERMARKET_CATEGORIES: { name: ProductCategory; search: string }[] = [
   { name: 'Bebidas', search: 'Bebidas' },
   { name: 'Laticínios', search: 'Laticínios' },
