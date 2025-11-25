@@ -375,49 +375,53 @@ export default function SoloPage() {
             <h3 className="mt-1 font-ad text-xl uppercase leading-snug text-blue-deep">{currentProduct.name}</h3>
             {currentProduct.store && <p className="text-sm text-blue-deep/70">{currentProduct.store}</p>}
           </div>
-          <div className="flex items-center justify-center rounded-md border-2 border-blue-deep bg-card p-2 shadow-flyer-sm">
+          <div className="flex items-center justify-center rounded-md border-2 border-blue-deep bg-card p-3 shadow-flyer-sm">
             <ProductImage
               src={currentProduct.imageUrl}
               alt={currentProduct.name}
-              width={180}
-              height={180}
-              className="h-[160px] w-[160px] rounded-md border-2 border-blue-deep bg-blue-light/30 p-2 shadow-flyer-xs object-contain"
+              width={300}
+              height={300}
+              className="h-[260px] w-[260px] rounded-md border-2 border-blue-deep bg-blue-light/30 p-3 shadow-flyer-xs object-contain"
             />
           </div>
         </div>
 
         {!showResult && (
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <div className="flyer-panel flex-1 bg-blue-light/10 px-3 py-2">
-              <label className="text-[10px] font-semibold uppercase tracking-[0.35em] text-blue-mid">
-                {t('Your Guess (€)', 'O teu palpite (€)')}
-              </label>
-              <input
-                type="number"
-                value={guess}
-                onChange={(e) => setGuess(e.target.value)}
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-                className="mt-1 w-full bg-transparent font-ad text-3xl uppercase leading-tight text-blue-deep placeholder:text-blue-deep/30 focus:outline-none"
-              />
+          <div className="space-y-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+              <div className="flyer-panel flex-1 bg-blue-light/10 px-3 py-2">
+                <label className="text-[10px] font-semibold uppercase tracking-[0.35em] text-blue-mid">
+                  {t('Your Guess (€)', 'O teu palpite (€)')}
+                </label>
+                <input
+                  type="number"
+                  value={guess}
+                  onChange={(e) => setGuess(e.target.value)}
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                  className="mt-1 w-full bg-transparent font-ad text-3xl uppercase leading-tight text-blue-deep placeholder:text-blue-deep/30 focus:outline-none"
+                />
+              </div>
+              <button
+                onClick={() => handleLock()}
+                disabled={lockedGuess !== null}
+                {...hotkey('enter', { allowInput: true, title: t('Shortcut: ⏎', 'Atalho: ⏎') })}
+                className={`coupon-button px-6 py-3 text-base sm:min-h-[85px] sm:flex sm:items-center sm:justify-center sm:px-6 sm:py-2 sm:self-start ${lockedGuess !== null ? 'cursor-not-allowed opacity-60' : 'bg-blue-mid text-card hover:-translate-y-1'
+                  }`}
+              >
+                {withShortcut(t('Lock Guess', 'Bloquear palpite'), `(${ENTER_SYMBOL})`)}
+              </button>
             </div>
-            <button
-              onClick={() => handleLock()}
-              disabled={lockedGuess !== null}
-              {...hotkey('enter', { allowInput: true, title: t('Shortcut: ⏎', 'Atalho: ⏎') })}
-              className={`coupon-button px-6 py-3 text-base ${lockedGuess !== null ? 'cursor-not-allowed opacity-60' : 'bg-blue-mid text-card hover:-translate-y-1'
-                }`}
-            >
-              {withShortcut(t('Lock Guess', 'Bloquear palpite'), `(${ENTER_SYMBOL})`)}
-            </button>
-            <button
-              className="coupon-button bg-card px-4 py-3 text-sm sm:px-5 sm:py-3 sm:text-base hover:-translate-y-1"
-              onClick={() => router.push('/')}
-              {...hotkey('escape', { title: t('Shortcut: Esc', 'Atalho: Esc') })}
-            >
-              {withShortcut(t('Leave game', 'Sair do jogo'), `(${ESC_LABEL})`)}
-            </button>
+            <div className="flex">
+              <button
+                className="coupon-button bg-card px-4 py-3 text-sm sm:px-5 sm:py-3 sm:text-base hover:-translate-y-1"
+                onClick={() => router.push('/')}
+                {...hotkey('escape', { title: t('Shortcut: Esc', 'Atalho: Esc') })}
+              >
+                {withShortcut(t('Leave game', 'Sair do jogo'), `(${ESC_LABEL})`)}
+              </button>
+            </div>
           </div>
         )}
 

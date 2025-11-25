@@ -1,6 +1,6 @@
 'use client';
 
-import { getRandomStageName } from '@/lib/stageNames';
+import { getRandomStageName, type StageNameLanguage } from '@/lib/stageNames';
 
 const SESSION_ID_KEY = 'lenka:sessionPlayerId';
 const BASE_ID_KEY = 'lenka:basePlayerId';
@@ -52,14 +52,26 @@ export function ensurePlayerClientId(): string {
 
 export function resolvePlayerName(
   rawName: string,
-  onGenerate?: (generated: string) => void
+  onGenerate?: (generated: string) => void,
+  language?: StageNameLanguage
 ): { finalName: string; wasGenerated: boolean } {
   const trimmed = (rawName || '').trim();
   if (trimmed) {
     return { finalName: trimmed, wasGenerated: false };
   }
 
-  const funnyName = getRandomStageName();
+  const preferredLanguage = (() => {
+    if (language) return language;
+    if (typeof window === 'undefined') return 'en';
+    try {
+      const stored = window.localStorage.getItem('lenka:language');
+      return stored === 'pt' || stored === 'en' ? stored : 'en';
+    } catch (err) {
+      return 'en';
+    }
+  })();
+
+  const funnyName = getRandomStageName(preferredLanguage);
   if (onGenerate) {
     onGenerate(funnyName);
   }

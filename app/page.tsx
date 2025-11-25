@@ -344,7 +344,7 @@ export default function Home() {
 
   const handleCreateLobby = () => {
     clearError();
-    const { finalName } = resolvePlayerName(playerName, setPlayerName);
+    const { finalName } = resolvePlayerName(playerName, setPlayerName, language);
     localStorage.setItem('playerName', finalName);
     localStorage.setItem('createLobby', 'true');
     localStorage.setItem('roundsTotal', DEFAULT_ROUNDS.toString());
@@ -360,7 +360,7 @@ export default function Home() {
 
   const handleJoinLobby = () => {
     clearError();
-    const { finalName } = resolvePlayerName(playerName, setPlayerName);
+    const { finalName } = resolvePlayerName(playerName, setPlayerName, language);
     if (!lobbyCode.trim()) {
       setErrorFor('join', t('Please enter the lobby code', 'Introduz o código do lobby'));
       return;
@@ -373,7 +373,7 @@ export default function Home() {
   };
   const handleStartSolo = () => {
     clearError();
-    const { finalName } = resolvePlayerName(playerName, setPlayerName);
+    const { finalName } = resolvePlayerName(playerName, setPlayerName, language);
     localStorage.setItem('playerName', finalName);
     localStorage.setItem('soloRounds', soloRounds.toString());
     localStorage.setItem('soloSource', soloSource);
