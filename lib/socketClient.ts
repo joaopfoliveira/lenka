@@ -3,6 +3,7 @@ import { Lobby } from './gameManager';
 import { Product } from './productTypes';
 
 let socket: Socket | null = null;
+type ProductSource = Lobby['productSource'];
 
 export function getSocket(): Socket {
   if (!socket) {
@@ -76,7 +77,7 @@ export function removeAllGameListeners() {
 export function createLobby(
   roundsTotal: number,
   playerName: string,
-  productSource: 'kuantokusta' | 'temu' | 'decathlon' | 'mixed' = 'mixed',
+  productSource: ProductSource = 'mixed',
   clientId: string
 ) {
   const socket = getSocket();
@@ -96,7 +97,7 @@ export function leaveLobby(code: string) {
 export function updateLobbySettings(
   code: string,
   roundsTotal: number,
-  productSource: 'kuantokusta' | 'temu' | 'decathlon' | 'mixed'
+  productSource: ProductSource
 ) {
   const socket = getSocket();
   socket.emit('lobby:update-settings', { code, roundsTotal, productSource });

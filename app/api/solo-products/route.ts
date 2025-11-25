@@ -5,6 +5,8 @@ import { fetchRandomTemuProducts } from '@/lib/fetchers/temu.fetcher';
 import { fetchRandomDecathlonProducts } from '@/lib/fetchers/decathlon.fetcher';
 import { fetchRandomSupermarketProducts } from '@/lib/fetchers/supermarket.fetcher';
 
+export const dynamic = 'force-dynamic';
+
 type Source = 'kuantokusta' | 'temu' | 'decathlon' | 'supermarket' | 'mixed';
 type Provider = Exclude<Source, 'mixed'>;
 
@@ -21,6 +23,7 @@ function splitCounts(total: number, providers: Provider[]): Record<Provider, num
     kuantokusta: 0,
     temu: 0,
     decathlon: 0,
+    supermarket: 0,
   };
   providers.forEach((p) => {
     counts[p] = base;

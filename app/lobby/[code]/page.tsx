@@ -50,6 +50,8 @@ import TopControls from '@/app/components/TopControls';
 import SfxToggle from '@/app/components/sfx/SfxToggle';
 import { useButtonHotkeys } from '@/app/hooks/useButtonHotkeys';
 
+type ProductSource = Lobby['productSource'];
+
 
 
 function StageBackground({
@@ -634,7 +636,7 @@ export default function LobbyPage() {
 
         if (shouldCreate && code === '__create__') {
           const roundsTotal = parseInt(localStorage.getItem('roundsTotal') || '5');
-          const productSource = (localStorage.getItem('productSource') || 'mixed') as 'kuantokusta' | 'temu' | 'decathlon' | 'mixed';
+          const productSource = (localStorage.getItem('productSource') || 'mixed') as ProductSource;
           console.log('Creating lobby with', roundsTotal, 'rounds, source:', productSource);
           createLobby(roundsTotal, playerName, productSource, clientIdRef.current);
           localStorage.removeItem('createLobby');
@@ -693,7 +695,7 @@ export default function LobbyPage() {
         }
       });
     };
-  }, [addTimeout, code, router]);
+  }, [addTimeout, code, router, t]);
 
   useEffect(() => {
     if (!currentProduct) {
@@ -858,7 +860,7 @@ export default function LobbyPage() {
 
   const handleLobbySettingsChange = (settings: {
     roundsTotal?: number;
-    productSource?: 'kuantokusta' | 'temu' | 'decathlon' | 'supermarket' | 'mixed';
+    productSource?: ProductSource;
   }) => {
     if (!lobby || !currentPlayer?.isHost) {
       return;
