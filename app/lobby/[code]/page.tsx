@@ -161,7 +161,7 @@ function SettingsHeader({ code, onCopy }: { code: string; onCopy: () => void }) 
 export default function LobbyPage() {
   const params = useParams();
   const router = useRouter();
-  const code = params.code as string;
+  const code = params?.code as string;
 
   useButtonHotkeys();
 

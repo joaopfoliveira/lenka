@@ -10,14 +10,16 @@ export const dynamic = 'force-dynamic';
 type Source = 'kuantokusta' | 'temu' | 'decathlon' | 'supermarket' | 'mixed';
 type Provider = Exclude<Source, 'mixed'>;
 
-const providerFetchers: Record<Provider, (count: number) => Promise<Product[]>> = {
+type ProviderFetcherMap = Record<Provider, (count: number) => Promise<Product[]>>;
+
+const providerFetchers: ProviderFetcherMap = {
   kuantokusta: fetchRandomKuantoKustaProductsAPI,
   temu: fetchRandomTemuProducts,
   decathlon: fetchRandomDecathlonProducts,
   supermarket: fetchRandomSupermarketProducts,
 };
 
-function splitCounts(total: number, providers: Provider[]): Record<Provider, number> {
+export function splitCounts(total: number, providers: Provider[]): Record<Provider, number> {
   const base = Math.floor(total / providers.length);
   const counts: Record<Provider, number> = {
     kuantokusta: 0,
@@ -38,7 +40,11 @@ function splitCounts(total: number, providers: Provider[]): Record<Provider, num
   return counts;
 }
 
-async function fetchFromProviders(source: Source, total: number): Promise<Product[]> {
+export async function fetchFromProviders(
+  source: Source,
+  total: number,
+  fetchers: ProviderFetcherMap = providerFetchers
+): Promise<Product[]> {
   let products: Product[] = [];
   const providers: Provider[] = source === 'mixed' ? ['kuantokusta', 'temu', 'decathlon'] : [source];
   const counts = splitCounts(total, providers);
@@ -48,7 +54,7 @@ async function fetchFromProviders(source: Source, total: number): Promise<Produc
       const count = counts[provider];
       if (count <= 0) return [] as Product[];
       try {
-        return await providerFetchers[provider](count);
+        return await fetchers[provider](count);
       } catch (err) {
         console.warn(`⚠️ Failed to fetch ${provider} products for solo:`, err);
         return [] as Product[];
@@ -65,7 +71,7 @@ async function fetchFromProviders(source: Source, total: number): Promise<Produc
     for (const provider of providers) {
       if (products.length >= total) break;
       try {
-        const extra = await providerFetchers[provider](Math.max(remaining, 1));
+        const extra = await fetchers[provider](Math.max(remaining, 1));
         products = products.concat(extra);
       } catch (err) {
         console.warn(`⚠️ Retry fetch failed for ${provider}:`, err);
@@ -84,6 +90,12 @@ export async function GET(req: Request) {
     const sourceParam = (searchParams.get('source') as Source) || 'mixed';
     const allowedSources: Source[] = ['kuantokusta', 'temu', 'decathlon', 'supermarket', 'mixed'];
     const source: Source = allowedSources.includes(sourceParam) ? sourceParam : 'mixed';
+
+    const useFixture = process.env.E2E_FIXTURE === '1' || searchParams.get('fixture') === '1';
+    if (useFixture) {
+      const products = productCollection.products.slice(0, rounds);
+      return NextResponse.json({ products });
+    }
 
     const products = await fetchFromProviders(source, rounds);
 

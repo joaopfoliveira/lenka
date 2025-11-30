@@ -77,7 +77,7 @@ export type GameStats = {
   lobbies: LobbySummary[];
 };
 
-class GameManager {
+export class GameManager {
   private lobbies: Map<string, Lobby> = new Map();
   private readonly maxNameLength = 24;
 
@@ -284,6 +284,21 @@ class GameManager {
     
     if (!lobby || lobby.status !== 'loading') {
       return null;
+    }
+
+    // E2E fixture mode: use bundled products to avoid external fetches
+    if (process.env.E2E_FIXTURE === '1') {
+      const products = [...productCollection.products].slice(0, lobby.roundsTotal);
+      lobby.products = products;
+      lobby.status = 'playing';
+      lobby.currentRoundIndex = 0;
+      lobby.currentProduct = products[0];
+      lobby.guesses = {};
+      lobby.readyPlayers = {};
+      lobby.lastRoundResults = null;
+      lobby.players.forEach((p) => (p.score = 0));
+      console.log(`🧪 [E2E] Using fixture products (${products.length}) for lobby ${code}`);
+      return lobby;
     }
 
     try {

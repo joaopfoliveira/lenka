@@ -7,8 +7,18 @@
     "build": "next build",
     "start": "NODE_ENV=production tsx server.ts",
     "lint": "next lint",
+    "test:multiplayer": "node --import tsx tests/multiplayer-flow.test.ts",
+    "test:solo": "node --import tsx tests/solo-happy.test.ts",
+    "test": "npm run test:solo && npm run test:multiplayer",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "HEADLESS=false playwright test",
+    "test:e2e:code": "node scripts/run-e2e-by-code.js",
+    "test:e2e:ui:code": "HEADLESS=false node scripts/run-e2e-by-code.js --ui",
     "test:kuantokusta": "tsx scripts/test-kuantokusta-api.ts",
     "test:supersave": "tsx scripts/test-supersave.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.0"
   },
   "dependencies": {
     "@types/node": "^20.0.0",

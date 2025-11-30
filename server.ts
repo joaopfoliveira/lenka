@@ -14,6 +14,9 @@ if (process.env.NODE_ENV !== 'production') {
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = dev ? 'localhost' : '0.0.0.0';
 const port = parseInt(process.env.PORT || '3000', 10);
+const isE2E = process.env.E2E_FIXTURE === '1';
+const ROUND_SECONDS = isE2E ? 6 : 30;
+const READY_SECONDS = isE2E ? 6 : 45;
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
@@ -52,12 +55,106 @@ function clearPendingDisconnect(clientId: string): boolean {
 app.prepare().then(() => {
   const httpServer = createServer(async (req, res) => {
     try {
+      if (isE2E && req.url) {
+        if (req.url.startsWith('/__e2e/create-lobby')) {
+          const parsed = parse(req.url, true);
+          const q = parsed.query;
+          const rounds = Math.max(1, Math.min(10, Number(q.rounds) || 2));
+          const source = (q.source as any) || 'mixed';
+          const name = (q.name as string) || 'E2E Host';
+          const lobby = gameManager.createLobby(rounds, name, `e2e-${Date.now()}`, source);
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ code: lobby.code }));
+          return;
+        }
+
+        if (req.url.startsWith('/__e2e/products')) {
+          const parsed = parse(req.url, true);
+          const q = parsed.query;
+          const count = Math.max(1, Math.min(50, Number(q.count) || 10));
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ products: productCollection.products.slice(0, count) }));
+          return;
+        }
+
+        if (req.url.startsWith('/__e2e/start-game')) {
+          const parsed = parse(req.url, true);
+          const code = (parsed.query.code as string) || '';
+          const count = Math.max(1, Math.min(50, Number(parsed.query.count) || 5));
+          const lobby = gameManager.startGame(code);
+          if (!lobby) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ error: 'lobby not found or invalid state' }));
+            return;
+          }
+          const products = productCollection.products.slice(0, count);
+          const started = gameManager.startGameWithClientProducts(code, products as any);
+          if (!started) {
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: 'failed to start' }));
+            return;
+          }
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ ok: true, code, products: started.products }));
+          return;
+        }
+      }
+
       if (req.url?.startsWith('/metrics')) {
         const metrics = await getPrometheusMetrics();
         res.statusCode = 200;
         res.setHeader('Content-Type', metricsContentType);
         res.setHeader('Cache-Control', 'no-store');
         res.end(metrics);
+        return;
+      }
+
+      if (isE2E && req.url?.startsWith('/__e2e/create-lobby')) {
+        const parsed = parse(req.url, true);
+        const q = parsed.query;
+        const rounds = Math.max(1, Math.min(10, Number(q.rounds) || 2));
+        const source = (q.source as any) || 'mixed';
+        const name = (q.name as string) || 'E2E Host';
+        const lobby = gameManager.createLobby(rounds, name, `e2e-${Date.now()}`, source);
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ code: lobby.code }));
+        return;
+      }
+
+      if (isE2E && req.url?.startsWith('/__e2e/products')) {
+        const parsed = parse(req.url, true);
+        const q = parsed.query;
+        const count = Math.max(1, Math.min(50, Number(q.count) || 10));
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ products: productCollection.products.slice(0, count) }));
+        return;
+      }
+
+      if (isE2E && req.url?.startsWith('/__e2e/start-game')) {
+        const parsed = parse(req.url, true);
+        const code = (parsed.query.code as string) || '';
+        const count = Math.max(1, Math.min(50, Number(parsed.query.count) || 5));
+        const lobby = gameManager.startGame(code);
+        if (!lobby) {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: 'lobby not found or invalid state' }));
+          return;
+        }
+        const products = productCollection.products.slice(0, count);
+        const started = gameManager.startGameWithClientProducts(code, products as any);
+        if (!started) {
+          res.statusCode = 500;
+          res.end(JSON.stringify({ error: 'failed to start' }));
+          return;
+        }
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ ok: true, code, products: started.products }));
         return;
       }
 
@@ -309,7 +406,7 @@ app.prepare().then(() => {
 
         // Helper function to wait for all players to be ready
         function waitForPlayersReady(lobbyCode: string, results: any) {
-          let readyTimeout = 45; // 45 seconds timeout
+          let readyTimeout = READY_SECONDS; // seconds timeout
           const readyTimer = setInterval(() => {
             readyTimeout--;
             io.to(lobbyCode).emit('ready:timeout', { timeLeft: readyTimeout });
@@ -332,6 +429,7 @@ app.prepare().then(() => {
                   finalLeaderboard: results.leaderboard
                 });
               } else if (updatedLobby && updatedLobby.currentProduct) {
+                io.to(lobbyCode).emit('lobby:state', updatedLobby); // sync cleared guesses/ready
                 // Next round
                 io.to(lobbyCode).emit('game:started', {
                   product: updatedLobby.currentProduct,
@@ -347,7 +445,7 @@ app.prepare().then(() => {
         }
 
         function startRoundCountdown(lobbyCode: string) {
-          let time = 30;
+          let time = ROUND_SECONDS;
           const timer = setInterval(() => {
             time--;
             io.to(lobbyCode).emit('round:update', { timeLeft: time });
@@ -440,7 +538,7 @@ app.prepare().then(() => {
 
         // Helper function to wait for all players to be ready
         function waitForPlayersReady(lobbyCode: string, results: any) {
-          let readyTimeout = 45; // 45 seconds timeout
+          let readyTimeout = READY_SECONDS; // seconds timeout
           const readyTimer = setInterval(() => {
             readyTimeout--;
             io.to(lobbyCode).emit('ready:timeout', { timeLeft: readyTimeout });
@@ -465,6 +563,7 @@ app.prepare().then(() => {
                   finalLeaderboard: results.leaderboard
                 });
               } else if (updatedLobby && updatedLobby.currentProduct) {
+                io.to(lobbyCode).emit('lobby:state', updatedLobby); // sync cleared guesses/ready
                 // Next round
                 io.to(lobbyCode).emit('game:started', {
                   product: updatedLobby.currentProduct,
@@ -482,7 +581,7 @@ app.prepare().then(() => {
 
         // Helper function to start countdown (for recursive rounds)
         function startRoundCountdown(lobbyCode: string) {
-          let time = 30; // 30 seconds (double)
+          let time = ROUND_SECONDS; // adjustable for E2E
           const timer = setInterval(() => {
             time--;
             io.to(lobbyCode).emit('round:update', { timeLeft: time });

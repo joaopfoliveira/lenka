@@ -123,8 +123,18 @@ export default function SoloPage() {
       } catch (err: any) {
         console.error('Failed to load solo products:', err);
         if (cancelled) return;
-        setLoadError(err?.message || 'Erro ao carregar produtos');
-        setProducts([]);
+        // Try fixture fallback
+        try {
+          const res = await fetch(`/api/solo-products?rounds=${resolvedRounds}&source=${resolvedSource}&fixture=1`);
+          if (!res.ok) throw new Error(`Fixture fetch failed (${res.status})`);
+          const data = (await res.json()) as { products: Product[] };
+          setProducts(data.products || []);
+          setLoadError(null);
+        } catch (fallbackErr: any) {
+          console.error('Fixture fallback failed:', fallbackErr);
+          setLoadError(err?.message || 'Erro ao carregar produtos');
+          setProducts([]);
+        }
       } finally {
         if (!cancelled) {
           setIsLoadingProducts(false);
