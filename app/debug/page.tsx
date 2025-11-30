@@ -71,7 +71,8 @@ export default function DebugPage() {
   const origin = useMemo(() => (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'), []);
 
   const log = (msg: string) => {
-    setEvents((prev) => [msg, ...prev].slice(0, 200));
+    const ts = new Date().toISOString().split('T')[1].replace('Z', '');
+    setEvents((prev) => [`${ts} | ${msg}`, ...prev].slice(0, 200));
   };
 
   useEffect(() => {
@@ -80,6 +81,21 @@ export default function DebugPage() {
       simPlayers.forEach((p) => p.socket.disconnect());
     };
   }, [simPlayers]);
+
+  // Timestamped console for this page (dev-only)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const orig = { log: console.log, warn: console.warn, error: console.error };
+    const stamp = () => new Date().toISOString().split('T')[1].replace('Z', '');
+    console.log = (...args: any[]) => orig.log(`[${stamp()}]`, ...args);
+    console.warn = (...args: any[]) => orig.warn(`[${stamp()}]`, ...args);
+    console.error = (...args: any[]) => orig.error(`[${stamp()}]`, ...args);
+    return () => {
+      console.log = orig.log;
+      console.warn = orig.warn;
+      console.error = orig.error;
+    };
+  }, []);
 
   const attachMainListeners = () => {
     const socket = getSocket();

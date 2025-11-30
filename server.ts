@@ -18,6 +18,20 @@ const isE2E = process.env.E2E_FIXTURE === '1';
 const ROUND_SECONDS = isE2E ? 6 : 30;
 const READY_SECONDS = isE2E ? 6 : 45;
 
+// Patch console with timestamps (server/Raspberry logs)
+(() => {
+  const flag = '__lenkaConsolePatched__';
+  if ((global as any)[flag]) return;
+  (global as any)[flag] = true;
+  const orig = { log: console.log, warn: console.warn, error: console.error, info: console.info, debug: console.debug };
+  const stamp = () => new Date().toISOString();
+  console.log = (...args: any[]) => orig.log(`[${stamp()}]`, ...args);
+  console.warn = (...args: any[]) => orig.warn(`[${stamp()}]`, ...args);
+  console.error = (...args: any[]) => orig.error(`[${stamp()}]`, ...args);
+  console.info = (...args: any[]) => orig.info(`[${stamp()}]`, ...args);
+  console.debug = (...args: any[]) => orig.debug(`[${stamp()}]`, ...args);
+})();
+
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
