@@ -4,6 +4,7 @@ import next from 'next';
 import { Server } from 'socket.io';
 import { gameManager } from './lib/gameManager';
 import { getPrometheusMetrics, metricsContentType } from './lib/promMetrics';
+import { prisma, redis } from './lib/db';
 
 // Allow self-signed certificates in development (for KuantoKusta API)
 if (process.env.NODE_ENV !== 'production') {
@@ -34,6 +35,18 @@ const READY_SECONDS = isE2E ? 6 : 45;
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
+
+// Initialize DB and Redis before boot
+(async () => {
+  try {
+    await prisma.$connect();
+    await redis.ping();
+    console.log('✅ Connected to Postgres and Redis');
+  } catch (err) {
+    console.error('❌ Failed to connect to Postgres/Redis', err);
+    process.exit(1);
+  }
+})();
 
 // Track active timers per lobby to clean them up when needed
 const activeTimers = new Map<string, NodeJS.Timeout[]>();

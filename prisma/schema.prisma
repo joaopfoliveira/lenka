@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Store {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  type      String
+  country   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  products  Product[]
+  runs      ScrapeRun[]
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  products  ProductCategory[]
+}
+
+model Product {
+  id          String            @id @default(cuid())
+  store       Store             @relation(fields: [storeId], references: [id])
+  storeId     String
+  externalId  String?
+  name        String
+  description String?
+  imageUrl    String?
+  productUrl  String?
+  priceCents  Int
+  currency    String
+  firstSeenAt DateTime          @default(now())
+  lastSeenAt  DateTime
+  isActive    Boolean           @default(true)
+  randomKey   Float             @default(0)
+  rawData     Json?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  categories  ProductCategory[]
+
+  @@index([storeId, externalId])
+  @@index([isActive, lastSeenAt])
+  @@unique([storeId, externalId])
+}
+
+model ProductCategory {
+  product    Product  @relation(fields: [productId], references: [id])
+  productId  String
+  category   Category @relation(fields: [categoryId], references: [id])
+  categoryId String
+
+  @@id([productId, categoryId])
+}
+
+model ScrapeRun {
+  id           String   @id @default(cuid())
+  store        Store    @relation(fields: [storeId], references: [id])
+  storeId      String
+  status       String
+  startedAt    DateTime @default(now())
+  finishedAt   DateTime?
+  errorMessage String?
+}

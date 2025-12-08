@@ -15,10 +15,17 @@
     "test:e2e:code": "node scripts/run-e2e-by-code.js",
     "test:e2e:ui:code": "HEADLESS=false node scripts/run-e2e-by-code.js --ui",
     "test:kuantokusta": "tsx scripts/test-kuantokusta-api.ts",
-    "test:supersave": "tsx scripts/test-supersave.ts"
+    "test:supersave": "tsx scripts/test-supersave.ts",
+    "prisma:generate": "prisma generate",
+    "scrape:kuantokusta": "tsx scripts/runScrape.ts kuantokusta",
+    "scrape:temu": "tsx scripts/runScrape.ts temu",
+    "scrape:decathlon": "tsx scripts/runScrape.ts decathlon",
+    "scrape:supermarket": "tsx scripts/runScrape.ts supermarket",
+    "scrape:amazon": "tsx scripts/runScrape.ts amazon"
   },
   "devDependencies": {
-    "@playwright/test": "^1.50.0"
+    "@playwright/test": "^1.50.0",
+    "prisma": "^5.20.0"
   },
   "dependencies": {
     "@types/node": "^20.0.0",
@@ -30,6 +37,8 @@
     "next": "^14.2.0",
     "postcss": "^8.4.0",
     "prom-client": "^15.1.3",
+    "@prisma/client": "^5.20.0",
+    "ioredis": "^5.4.1",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "socket.io": "^4.7.0",

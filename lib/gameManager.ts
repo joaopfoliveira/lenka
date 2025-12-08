@@ -1,9 +1,5 @@
 import { Product } from './productTypes';
 import { productCollection } from '@/data/products';
-import { fetchRandomKuantoKustaProductsAPI } from './fetchers/kuantokusta-api.fetcher';
-import { fetchRandomTemuProducts } from './fetchers/temu.fetcher';
-import { fetchRandomDecathlonProducts } from './fetchers/decathlon.fetcher';
-import { fetchRandomSupermarketProducts } from './fetchers/supermarket.fetcher';
 import { 
   calculateRoundResults as scoringCalculateRoundResults, 
   generateLeaderboard,
@@ -11,6 +7,7 @@ import {
   type RoundResultEntry 
 } from './scoring';
 import { getRandomStageName } from './stageNames';
+import { getRandomProducts } from './productService';
 
 export type Player = {
   id: string;
@@ -302,123 +299,39 @@ export class GameManager {
     }
 
     try {
-      console.log(`🎮 [SERVER] Fetching ${lobby.roundsTotal} products for lobby ${code} (source: ${lobby.productSource})...`);
-      
-      let kkProducts: Product[] = [];
-      let temuProducts: Product[] = [];
-      let decathlonProducts: Product[] = [];
-      const combineAll = () => [...kkProducts, ...temuProducts, ...decathlonProducts];
-      const ensureMinCount = async (providers: Array<'kuantokusta' | 'temu' | 'decathlon'>, target: number) => {
-        let attempts = 0;
-        let current = combineAll().length;
-        while (current < target && attempts < 2) {
-          const remaining = target - current;
-          for (const provider of providers) {
-            const need = target - combineAll().length;
-            if (need <= 0) break;
-            try {
-              if (provider === 'kuantokusta') {
-                const extra = await fetchRandomKuantoKustaProductsAPI(need);
-                kkProducts = kkProducts.concat(extra);
-              } else if (provider === 'temu') {
-                const extra = await fetchRandomTemuProducts(need);
-                temuProducts = temuProducts.concat(extra);
-              } else if (provider === 'decathlon') {
-                const extra = await fetchRandomDecathlonProducts(need);
-                decathlonProducts = decathlonProducts.concat(extra);
-              }
-            } catch (err) {
-              console.warn(`⚠️ Retry fetch failed for ${provider}:`, err);
-            }
-          }
-          current = combineAll().length;
-          attempts += 1;
-        }
-      };
-      
-      if (lobby.productSource === 'mixed') {
-        // Split products between KuantoKusta, Temu and Decathlon
-        const providers: Array<'kuantokusta' | 'temu' | 'decathlon'> = ['kuantokusta', 'temu', 'decathlon'];
-        const baseCount = Math.floor(lobby.roundsTotal / providers.length);
-        const counts = {
-          kuantokusta: baseCount,
-          temu: baseCount,
-          decathlon: baseCount,
-        };
-        let remainder = lobby.roundsTotal - baseCount * providers.length;
-        let idx = 0;
-        while (remainder > 0) {
-          counts[providers[idx]] += 1;
-          remainder -= 1;
-          idx = (idx + 1) % providers.length;
-        }
-        
-        console.log(`🛒 [SERVER] Fetching mixed set: KK=${counts.kuantokusta}, Temu=${counts.temu}, Decathlon=${counts.decathlon}`);
-        
-        const fetchPromises = [
-          counts.kuantokusta > 0 ? fetchRandomKuantoKustaProductsAPI(counts.kuantokusta) : Promise.resolve([]),
-          counts.temu > 0 ? fetchRandomTemuProducts(counts.temu) : Promise.resolve([]),
-          counts.decathlon > 0 ? fetchRandomDecathlonProducts(counts.decathlon) : Promise.resolve([]),
-        ];
-        
-        [kkProducts, temuProducts, decathlonProducts] = await Promise.all(fetchPromises);
-        
-        console.log(`✅ [SERVER] Mixed sources -> KK=${kkProducts.length}, Temu=${temuProducts.length}, Decathlon=${decathlonProducts.length}`);
-        if (combineAll().length < lobby.roundsTotal) {
-          await ensureMinCount(providers, lobby.roundsTotal);
-        }
-      } else if (lobby.productSource === 'kuantokusta') {
-        // Fetch only from KuantoKusta
-        console.log(`🛒 [SERVER] Fetching ${lobby.roundsTotal} from KuantoKusta only...`);
-        kkProducts = await fetchRandomKuantoKustaProductsAPI(lobby.roundsTotal);
-        console.log(`✅ [SERVER] Got ${kkProducts.length} from KuantoKusta`);
-        if (kkProducts.length < lobby.roundsTotal) {
-          await ensureMinCount(['kuantokusta'], lobby.roundsTotal);
-        }
-      } else if (lobby.productSource === 'temu') {
-        // Fetch only from Temu
-        console.log(`🛒 [SERVER] Fetching ${lobby.roundsTotal} from Temu only...`);
-        temuProducts = await fetchRandomTemuProducts(lobby.roundsTotal);
-        console.log(`✅ [SERVER] Got ${temuProducts.length} from Temu`);
-        if (temuProducts.length < lobby.roundsTotal) {
-          await ensureMinCount(['temu'], lobby.roundsTotal);
-        }
-      } else if (lobby.productSource === 'decathlon') {
-        console.log(`🛒 [SERVER] Fetching ${lobby.roundsTotal} from Decathlon only...`);
-        decathlonProducts = await fetchRandomDecathlonProducts(lobby.roundsTotal);
-        console.log(`✅ [SERVER] Got ${decathlonProducts.length} from Decathlon`);
-        if (decathlonProducts.length < lobby.roundsTotal) {
-          await ensureMinCount(['decathlon'], lobby.roundsTotal);
-        }
-      } else if (lobby.productSource === 'supermarket') {
-        console.log(`🛒 [SERVER] Fetching ${lobby.roundsTotal} from Supermercados (SuperSave)...`);
-        const supermarketProducts = await fetchRandomSupermarketProducts(lobby.roundsTotal * 2);
-        if (supermarketProducts.length < lobby.roundsTotal) {
-          console.warn('⚠️ [SERVER] Supermercados returned fewer items than requested');
-        }
-        const sliced = supermarketProducts.slice(0, lobby.roundsTotal);
-        if (!sliced.length) {
-          throw new Error('No supermarket products fetched');
-        }
-        // Force assign to kkProducts to reuse combineAll below without changing more code
-        kkProducts = sliced;
+      console.log(`🎮 [SERVER] Fetching catalog products for lobby ${code} (source: ${lobby.productSource})...`);
+      const storeSlugs =
+        lobby.productSource === 'mixed'
+          ? ['kuantokusta', 'temu', 'decathlon', 'supermarket', 'amazon']
+          : [lobby.productSource];
+      const categorySlugs = ['groceries', 'electronics', 'home', 'sports', 'fashion', 'beauty', 'toys', 'other'];
+
+      const products = await getRandomProducts({
+        storeSlugs,
+        categorySlugs,
+        limit: lobby.roundsTotal,
+        maxAgeDays: 14,
+      });
+
+      if (!products.length || products.length < lobby.roundsTotal) {
+        throw new Error(`Insufficient catalog products: got ${products.length}, needed ${lobby.roundsTotal}`);
       }
-      
-      // Combine and shuffle products
-      const allProducts = combineAll();
-      lobby.products = allProducts.sort(() => Math.random() - 0.5).slice(0, lobby.roundsTotal);
-      
-      // Validate we have enough products
-      if (lobby.products.length < lobby.roundsTotal) {
-        throw new Error(`Insufficient products: got ${lobby.products.length}, needed ${lobby.roundsTotal}`);
-      }
-      
-      console.log(`✅ [SERVER] Combined ${lobby.products.length} products for game`);
-      console.log(
-        `📊 [SERVER] Sources: KK=${lobby.products.filter(p => p.source === 'kuantokusta').length}, Temu=${lobby.products.filter(p => p.source === 'temu').length}, Decathlon=${lobby.products.filter(p => p.source === 'decathlon').length}`
-      );
-      
-      // Start the game
+
+      lobby.products = products.slice(0, lobby.roundsTotal).map((p) => ({
+        id: p.id,
+        source: p.storeSlug as Product['source'],
+        name: p.name,
+        brand: undefined,
+        category: 'Outros',
+        price: p.priceCents / 100,
+        currency: p.currency,
+        imageUrl: p.imageUrl || '',
+        store: p.storeSlug,
+        storeUrl: p.productUrl,
+        description: p.description,
+        difficulty: 'medium',
+      }));
+
       lobby.status = 'playing';
       lobby.currentRoundIndex = 0;
       lobby.currentProduct = lobby.products[0];
@@ -437,7 +350,7 @@ export class GameManager {
       lobby.status = 'waiting';
       lobby.products = undefined;
       
-      throw new Error('Failed to fetch products from APIs. Please try again.');
+      throw new Error('Failed to fetch products from catalog. Please try again.');
     }
   }
 
