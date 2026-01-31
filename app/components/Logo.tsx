@@ -11,7 +11,7 @@ export default function Logo({
 }) {
   return (
     <Image
-      src="/lenka-logo.svg"
+      src="/lenka/lenka-logo.svg"
       alt="Lenka logo"
       width={width}
       height={height}

@@ -10,26 +10,27 @@ export function getSocket(): Socket {
     // Use window.location.origin in production, localhost in dev
     const socketUrl = typeof window !== 'undefined' && window.location.origin.includes('localhost')
       ? 'http://localhost:3000'
-      : typeof window !== 'undefined' 
-        ? window.location.origin 
+      : typeof window !== 'undefined'
+        ? window.location.origin
         : 'http://localhost:3000';
-    
+
     console.log('🔌 Connecting to Socket.IO at:', socketUrl);
-    
+
     socket = io(socketUrl, {
+      path: '/lenka/socket.io/',
       autoConnect: true,
       transports: ['websocket', 'polling'], // Try websocket first, fallback to polling
     });
-    
+
     // Debug logging
     socket.on('connect', () => {
       console.log('Socket.IO connected with ID:', socket?.id);
     });
-    
+
     socket.on('connect_error', (error) => {
       console.error('Socket.IO connection error:', error);
     });
-    
+
     socket.on('disconnect', (reason) => {
       console.log('Socket.IO disconnected:', reason);
     });
@@ -63,7 +64,7 @@ export function disconnectSocket() {
 export function removeAllGameListeners() {
   const socket = getSocket();
   console.log('🧹 Removing all game-related listeners');
-  
+
   // Remove all listeners for game events
   socket.removeAllListeners('game:loading');
   socket.removeAllListeners('game:started');

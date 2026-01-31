@@ -183,6 +183,7 @@ app.prepare().then(() => {
   });
 
   const io = new Server(httpServer, {
+    path: '/lenka/socket.io/',
     cors: {
       origin: "*",
       methods: ["GET", "POST"]

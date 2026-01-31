@@ -70,11 +70,11 @@ export default function SoloPage() {
       isMobileLayout
         ? {}
         : {
-            'data-hotkeys': keys,
-            ...(options?.allowInput ? { 'data-hotkey-allow-input': 'true' } : {}),
-            ...(options?.priority ? { 'data-hotkey-priority': 'true' } : {}),
-            ...(options?.title ? { title: options.title } : {}),
-          },
+          'data-hotkeys': keys,
+          ...(options?.allowInput ? { 'data-hotkey-allow-input': 'true' } : {}),
+          ...(options?.priority ? { 'data-hotkey-priority': 'true' } : {}),
+          ...(options?.title ? { title: options.title } : {}),
+        },
     [isMobileLayout]
   );
   const withShortcut = useCallback(
@@ -113,7 +113,7 @@ export default function SoloPage() {
       setLoadError(null);
 
       try {
-        const res = await fetch(`/api/solo-products?rounds=${resolvedRounds}&source=${resolvedSource}`);
+        const res = await fetch(`/lenka/api/solo-products?rounds=${resolvedRounds}&source=${resolvedSource}`);
         if (!res.ok) {
           throw new Error(`Failed to fetch products (${res.status})`);
         }
@@ -125,7 +125,7 @@ export default function SoloPage() {
         if (cancelled) return;
         // Try fixture fallback
         try {
-          const res = await fetch(`/api/solo-products?rounds=${resolvedRounds}&source=${resolvedSource}&fixture=1`);
+          const res = await fetch(`/lenka/api/solo-products?rounds=${resolvedRounds}&source=${resolvedSource}&fixture=1`);
           if (!res.ok) throw new Error(`Fixture fetch failed (${res.status})`);
           const data = (await res.json()) as { products: Product[] };
           setProducts(data.products || []);
@@ -452,24 +452,24 @@ export default function SoloPage() {
               {t('Difference', 'Diferença')}: €{Math.abs(lockedGuess - currentProduct.price).toFixed(2)}
             </p>
             <div className="flex gap-2">
-                {roundIndex + 1 >= roundsTotal ? (
-                  <button
-                    className="coupon-button flex-1 bg-blue-mid px-4 py-3 text-card hover:-translate-y-1"
-                    onClick={() => setShowSummary(true)}
-                    {...hotkey('enter', { title: t('Shortcut: ⏎', 'Atalho: ⏎') })}
-                  >
-                    {withShortcut(t('See final results', 'Ver resultados finais'), `(${ENTER_SYMBOL})`)}
-                  </button>
-                ) : (
-                  <button
-                    className="coupon-button flex-1 bg-blue-mid px-4 py-3 text-card hover:-translate-y-1"
-                    onClick={handleNext}
-                    {...hotkey('enter', { title: t('Shortcut: ⏎', 'Atalho: ⏎') })}
-                  >
-                    {withShortcut(t('Next product', 'Próximo produto'), `(${ENTER_SYMBOL})`)}
-                  </button>
-                )}
-              </div>
+              {roundIndex + 1 >= roundsTotal ? (
+                <button
+                  className="coupon-button flex-1 bg-blue-mid px-4 py-3 text-card hover:-translate-y-1"
+                  onClick={() => setShowSummary(true)}
+                  {...hotkey('enter', { title: t('Shortcut: ⏎', 'Atalho: ⏎') })}
+                >
+                  {withShortcut(t('See final results', 'Ver resultados finais'), `(${ENTER_SYMBOL})`)}
+                </button>
+              ) : (
+                <button
+                  className="coupon-button flex-1 bg-blue-mid px-4 py-3 text-card hover:-translate-y-1"
+                  onClick={handleNext}
+                  {...hotkey('enter', { title: t('Shortcut: ⏎', 'Atalho: ⏎') })}
+                >
+                  {withShortcut(t('Next product', 'Próximo produto'), `(${ENTER_SYMBOL})`)}
+                </button>
+              )}
+            </div>
           </div>
         )}
 
