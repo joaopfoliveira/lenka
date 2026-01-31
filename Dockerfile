@@ -27,7 +27,6 @@ COPY . .
 # Build Next.js
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
-ENV BASE_PATH=/lenka
 RUN npm run build
 
 # Runner
