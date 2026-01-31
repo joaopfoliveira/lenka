@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { Product } from '@/lib/productTypes';
 import { fetchFromProviders } from '@/lib/soloLogic';
+import { productCollection } from '@/data/products';
 
 export const dynamic = 'force-dynamic';
 

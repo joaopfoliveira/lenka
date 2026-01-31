@@ -1,6 +1,6 @@
 import assert from 'assert';
 import { test, expect } from 'vitest';
-import { splitCounts } from '../lib/soloLogic';
+import { splitCounts, fetchFromProviders } from '../lib/soloLogic';
 import { type Product } from '../lib/productTypes';
 
 type StubFetcher = (count: number) => Promise<Product[]>;
