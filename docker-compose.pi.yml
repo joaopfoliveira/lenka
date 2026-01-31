@@ -21,8 +21,8 @@ services:
     ports:
       - "3000:3000"
     networks:
-      - proxy
+      - traffic_net
 
 networks:
-  proxy:
+  traffic_net:
     external: true
