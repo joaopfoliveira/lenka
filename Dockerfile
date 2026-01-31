@@ -27,7 +27,10 @@ COPY . .
 # Build Next.js
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+ENV BASE_PATH=/lenka
 RUN npm run build
+# Compile custom server
+RUN npx tsc server.ts --module commonjs --moduleResolution node --target es6 --esModuleInterop --skipLibCheck
 
 # Runner
 FROM base AS runner
@@ -42,8 +45,11 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder /app/public ./public
 
 # Automatically leverage output traces
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# Copy artifacts for custom server
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/server.js ./server.js
 
 USER nextjs
 
