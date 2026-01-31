@@ -50,6 +50,7 @@ COPY --from=builder /app/server.ts ./server.ts
 COPY --from=builder /app/lib ./lib
 COPY --from=builder /app/data ./data
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
+COPY --from=builder /app/next.config.js ./next.config.js
 
 USER nextjs
 
