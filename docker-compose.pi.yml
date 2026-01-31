@@ -1,0 +1,25 @@
+version: "3.9"
+
+services:
+  lenka-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lenka-app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      BASE_PATH: /lenka
+      PORT: 3000
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lenka.rule=Host(`apps.itsprobabl.com`) && PathPrefix(`/lenka`)"
+      - "traefik.http.routers.lenka.entrypoints=websecure"
+      - "traefik.http.routers.lenka.tls=true"
+      - "traefik.http.services.lenka.loadbalancer.server.port=3000"
+    ports:
+      - "3000:3000"
+
+networks:
+  default:
+    name: lenka-net
