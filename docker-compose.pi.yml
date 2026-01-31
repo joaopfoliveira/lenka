@@ -16,6 +16,8 @@ services:
       - "traefik.http.routers.lenka.rule=Host(`apps.itsprobabl.com`) && PathPrefix(`/lenka`)"
       - "traefik.http.routers.lenka.entrypoints=websecure"
       - "traefik.http.routers.lenka.tls=true"
+      - "traefik.http.middlewares.lenka-stripprefix.stripprefix.prefixes=/lenka"
+      - "traefik.http.routers.lenka.middlewares=lenka-stripprefix"
       - "traefik.http.services.lenka.loadbalancer.server.port=3000"
     ports:
       - "3000:3000"
