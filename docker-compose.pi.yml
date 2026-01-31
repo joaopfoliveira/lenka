@@ -14,7 +14,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.lenka.rule=Host(`apps.itsprobabl.com`) && PathPrefix(`/lenka`)"
-      - "traefik.http.routers.lenka.entrypoints=websecure"
+      - "traefik.http.routers.lenka.entrypoints=https"
       - "traefik.http.routers.lenka.tls=true"
       - "traefik.http.middlewares.lenka-stripprefix.stripprefix.prefixes=/lenka"
       - "traefik.http.routers.lenka.middlewares=lenka-stripprefix"
