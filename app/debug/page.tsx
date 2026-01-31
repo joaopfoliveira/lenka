@@ -14,7 +14,7 @@ import {
   resetGame,
 } from '@/lib/socketClient';
 import type { Lobby } from '@/lib/gameManager';
-import { Product } from '@/data/products';
+import { Product } from '@/lib/productTypes';
 
 const DEV_PASSWORD = 'joao13';
 
@@ -284,7 +284,7 @@ export default function DebugPage() {
       <div className="rounded border p-3">
         <p className="text-xs font-semibold uppercase">Lobby state</p>
         <pre className="max-h-72 overflow-auto rounded bg-slate-900 p-3 text-xs text-green-100">
-{JSON.stringify(lobby, null, 2)}
+          {JSON.stringify(lobby, null, 2)}
         </pre>
       </div>
 
