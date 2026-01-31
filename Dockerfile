@@ -29,8 +29,6 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 ENV BASE_PATH=/lenka
 RUN npm run build
-# Compile custom server
-RUN npx tsc server.ts --module commonjs --moduleResolution node --target es6 --esModuleInterop --skipLibCheck
 
 # Runner
 FROM base AS runner
@@ -49,7 +47,10 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/server.js ./server.js
+COPY --from=builder /app/server.ts ./server.ts
+COPY --from=builder /app/lib ./lib
+COPY --from=builder /app/data ./data
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
 
 USER nextjs
 
@@ -58,4 +59,4 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["node", "server.js"]
+CMD ["npx", "tsx", "server.ts"]
