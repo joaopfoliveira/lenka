@@ -20,7 +20,9 @@ services:
       - "traefik.http.services.lenka.loadbalancer.server.port=3000"
     ports:
       - "3000:3000"
+    networks:
+      - proxy
 
 networks:
-  default:
-    name: lenka-net
+  proxy:
+    external: true
