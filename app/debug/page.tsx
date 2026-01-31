@@ -21,9 +21,9 @@ const DEV_PASSWORD = 'joao13';
 const fixtureProducts: Product[] = [
   { id: 'fx-1', source: 'supermarket', category: 'Bebidas', name: 'Água Fix 1L', price: 1.1, imageUrl: 'https://example.com/agua.jpg' },
   { id: 'fx-2', source: 'supermarket', category: 'Snacks', name: 'Bolachas Fix', price: 2.2, imageUrl: 'https://example.com/bolachas.jpg' },
-  { id: 'fx-3', source: 'supermarket', category: 'Frescos', name: 'Queijo Fix', price: 3.3, imageUrl: 'https://example.com/queijo.jpg' },
+  { id: 'fx-3', source: 'supermarket', category: 'Outros', name: 'Queijo Fix', price: 3.3, imageUrl: 'https://example.com/queijo.jpg' },
   { id: 'fx-4', source: 'supermarket', category: 'Bebidas', name: 'Sumo Fix', price: 4.4, imageUrl: 'https://example.com/sumo.jpg' },
-  { id: 'fx-5', source: 'supermarket', category: 'Mercearia', name: 'Arroz Fix', price: 5.5, imageUrl: 'https://example.com/arroz.jpg' },
+  { id: 'fx-5', source: 'supermarket', category: 'Outros', name: 'Arroz Fix', price: 5.5, imageUrl: 'https://example.com/arroz.jpg' },
 ];
 
 type SimPlayer = {
